@@ -1,0 +1,1287 @@
+[
+  {
+    "id": "ca-phe-sua",
+    "name": "Cà phê sữa",
+    "category": "Cà phê",
+    "price": 35000,
+    "description": "Cà phê đậm vị, sữa đặc ngọt dịu.",
+    "badge": "Bán chạy",
+    "imageUrl": "/images/products/ca-phe-sua.jpg",
+    "stock": 50,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "bac-xiu",
+    "name": "Bạc xỉu",
+    "category": "Cà phê",
+    "price": 35000,
+    "description": "Sữa béo nhẹ hòa cùng hương cà phê.",
+    "badge": "Yêu thích",
+    "imageUrl": "/images/products/bac_xiu.webp",
+    "stock": 50,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "americano",
+    "name": "Americano",
+    "category": "Cà phê",
+    "price": 40000,
+    "description": "Espresso cùng nước, vị thanh và hậu đắng.",
+    "badge": "",
+    "imageUrl": "/images/products/americano.jpg",
+    "stock": 50,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "latte",
+    "name": "Latte",
+    "category": "Cà phê",
+    "price": 45000,
+    "description": "Espresso cân bằng cùng sữa tươi.",
+    "badge": "",
+    "imageUrl": "/images/products/latte-da.jpg",
+    "stock": 50,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "tra-dao",
+    "name": "Trà đào cam sả",
+    "category": "Trà trái cây",
+    "price": 39000,
+    "description": "Trà thơm, đào ngọt và hương sả nhẹ.",
+    "badge": "Bán chạy",
+    "imageUrl": "/images/products/tra_dao_cam_sa.jpg",
+    "stock": 50,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "tra-vai",
+    "name": "Trà vải",
+    "category": "Trà trái cây",
+    "price": 39000,
+    "description": "Vị trà thanh hòa cùng vải ngọt mát.",
+    "badge": "",
+    "imageUrl": "/images/products/tra_vai.jpg",
+    "stock": 50,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "matcha-latte",
+    "name": "Matcha latte",
+    "category": "Matcha",
+    "price": 49000,
+    "description": "Matcha thơm dịu cùng sữa tươi béo nhẹ.",
+    "badge": "Mới",
+    "imageUrl": "/images/products/matcha_latte.jpg",
+    "stock": 50,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "chocolate",
+    "name": "Chocolate sữa",
+    "category": "Khác",
+    "price": 45000,
+    "description": "Cacao đậm đà, sữa tươi ngọt vừa.",
+    "badge": "",
+    "imageUrl": "/images/products/choco_latte.jpg",
+    "stock": 50,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "espresso",
+    "name": "Espresso",
+    "category": "Cà phê",
+    "price": 30000,
+    "description": "Espresso, pha mới khi bạn đặt.",
+    "badge": "Mới",
+    "imageUrl": "/images/products/espresso.jpg",
+    "stock": 0,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "cappuccino",
+    "name": "Cappuccino",
+    "category": "Cà phê",
+    "price": 45000,
+    "description": "Cappuccino, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/cappuchino.jpg",
+    "stock": 1,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "ca-phe-den",
+    "name": "Cà phê đen",
+    "category": "Cà phê",
+    "price": 29000,
+    "description": "Cà phê đen, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/cafe_den.webp",
+    "stock": 32,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "cold-brew",
+    "name": "Cold brew",
+    "category": "Cà phê",
+    "price": 45000,
+    "description": "Cold brew, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/cold_brew.jpg",
+    "stock": 33,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "caramel-latte",
+    "name": "Caramel latte",
+    "category": "Cà phê",
+    "price": 49000,
+    "description": "Caramel latte, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/caramel_latte.jpg",
+    "stock": 34,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "vanilla-latte",
+    "name": "Vanilla latte",
+    "category": "Cà phê",
+    "price": 49000,
+    "description": "Vanilla latte, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/Vanilla_Latte.jpg",
+    "stock": 35,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "mocha",
+    "name": "Mocha",
+    "category": "Cà phê",
+    "price": 49000,
+    "description": "Mocha, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/mocha.jpg",
+    "stock": 36,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "ca-phe-dua",
+    "name": "Cà phê dừa",
+    "category": "Cà phê",
+    "price": 45000,
+    "description": "Cà phê dừa, pha mới khi bạn đặt.",
+    "badge": "Mới",
+    "imageUrl": "/images/products/cafe_dua.jpeg",
+    "stock": 37,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "tra-chanh",
+    "name": "Trà chanh",
+    "category": "Trà trái cây",
+    "price": 29000,
+    "description": "Trà chanh, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/tra_chanh.jpg",
+    "stock": 38,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "tra-tac",
+    "name": "Trà tắc",
+    "category": "Trà trái cây",
+    "price": 29000,
+    "description": "Trà tắc, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/tra_tac.jpg",
+    "stock": 39,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "tra-dau",
+    "name": "Trà dâu",
+    "category": "Trà trái cây",
+    "price": 42000,
+    "description": "Trà dâu, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/tra_dau.jpg",
+    "stock": 0,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "tra-xoai",
+    "name": "Trà xoài",
+    "category": "Trà trái cây",
+    "price": 42000,
+    "description": "Trà xoài, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/tra_xoai.jpg",
+    "stock": 1,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "tra-chanh-day",
+    "name": "Trà chanh dây",
+    "category": "Trà trái cây",
+    "price": 39000,
+    "description": "Trà chanh dây, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/tra_chanh_day.webp",
+    "stock": 42,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "tra-oi-hong",
+    "name": "Trà ổi hồng",
+    "category": "Trà trái cây",
+    "price": 45000,
+    "description": "Trà ổi hồng, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/tra_oi_hong.png",
+    "stock": 43,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "tra-sen",
+    "name": "Trà sen",
+    "category": "Trà trái cây",
+    "price": 39000,
+    "description": "Trà sen, pha mới khi bạn đặt.",
+    "badge": "Mới",
+    "imageUrl": "/images/products/trasen.jpg",
+    "stock": 44,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "tra-luu",
+    "name": "Trà lựu",
+    "category": "Trà trái cây",
+    "price": 45000,
+    "description": "Trà lựu, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/tra_luu.jpg",
+    "stock": 45,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "matcha-da",
+    "name": "Matcha đá",
+    "category": "Matcha",
+    "price": 39000,
+    "description": "Matcha đá, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/matcha_da_xay.png",
+    "stock": 46,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "matcha-espresso",
+    "name": "Matcha espresso",
+    "category": "Matcha",
+    "price": 59000,
+    "description": "Matcha espresso, pha mới khi bạn đặt.",
+    "badge": "Mới",
+    "imageUrl": "/images/products/matcha_espresso.png",
+    "stock": 2,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "cacao-nong",
+    "name": "Cacao nóng",
+    "category": "Khác",
+    "price": 39000,
+    "description": "Cacao nóng, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/cacao_nong.jpg",
+    "stock": 52,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "sua-tuoi",
+    "name": "Sữa tươi",
+    "category": "Khác",
+    "price": 29000,
+    "description": "Sữa tươi, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/sua.jpg",
+    "stock": 53,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "sua-tuoi-tran-chau",
+    "name": "Sữa tươi trân châu",
+    "category": "Khác",
+    "price": 45000,
+    "description": "Sữa tươi trân châu, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/sua_tuoi_tran_chau.jpeg",
+    "stock": 54,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "soda-chanh",
+    "name": "Soda chanh",
+    "category": "Khác",
+    "price": 35000,
+    "description": "Soda chanh, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/soda_chanh.webp",
+    "stock": 55,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "soda-viet-quat",
+    "name": "Soda việt quất",
+    "category": "Khác",
+    "price": 39000,
+    "description": "Soda việt quất, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/soda_vietquoc.jpg",
+    "stock": 56,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "nuoc-cam",
+    "name": "Nước cam",
+    "category": "Khác",
+    "price": 45000,
+    "description": "Nước cam, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/cam_ep.jpg",
+    "stock": 57,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "nuoc-dua",
+    "name": "Nước dừa",
+    "category": "Khác",
+    "price": 35000,
+    "description": "Nước dừa, pha mới khi bạn đặt.",
+    "badge": "Mới",
+    "imageUrl": "/images/products/nuoc_dua.webp",
+    "stock": 58,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "yogurt-dau",
+    "name": "Sữa chua dâu",
+    "category": "Khác",
+    "price": 45000,
+    "description": "Sữa chua dâu, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/sua_chua_dau.jpg",
+    "stock": 59,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "yogurt-xoai",
+    "name": "Sữa chua xoài",
+    "category": "Khác",
+    "price": 45000,
+    "description": "Sữa chua xoài, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/sua_chua_xoai.png",
+    "stock": 60,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": [
+      {
+        "id": "cream",
+        "name": "Kem sữa",
+        "price": 10000
+      },
+      {
+        "id": "pearl",
+        "name": "Trân châu",
+        "price": 5000
+      }
+    ]
+  },
+  {
+    "id": "nuoc-suoi",
+    "name": "Nước suối",
+    "category": "Khác",
+    "price": 15000,
+    "description": "Nước suối, pha mới khi bạn đặt.",
+    "badge": "",
+    "imageUrl": "/images/products/nuoc_khoang.jpg",
+    "stock": 61,
+    "sizes": [
+      {
+        "name": "S",
+        "extraPrice": 0
+      },
+      {
+        "name": "M",
+        "extraPrice": 5000
+      },
+      {
+        "name": "L",
+        "extraPrice": 10000
+      }
+    ],
+    "toppings": []
+  }
+]

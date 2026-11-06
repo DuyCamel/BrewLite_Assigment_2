@@ -1,0 +1,20 @@
+/* TV3 — Khu vực tài khoản trên header. */
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+.name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.logout {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

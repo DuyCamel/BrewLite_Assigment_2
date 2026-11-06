@@ -1,0 +1,25 @@
+name: Check scaffold
+on:
+  pull_request:
+  push:
+    branches: [main, scaffold/brewlite-customer]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+# TV3: ESLint quality gate đã thêm (npm run lint); thứ tự npm ci → typecheck → lint → test → build chạy trên mọi PR.
+# TV3: required check cần chọn là job "check" của workflow "Check scaffold" (xem docs/TV3_HUONG_DAN.md, mục Branch protection); TV6 ghép CD sau job này.
+# TV6 TODO: CD image/registry/deploy/smoke/rollback sau khi chốt hosting, dùng image/Compose do TV1 bàn giao.
+# Branch protection cần cấu hình trong GitHub, workflow này tự nó không chặn quyền merge.

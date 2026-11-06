@@ -1,0 +1,62 @@
+# TV1: hoàn thiện Dockerfile web/api và Compose chạy đủ 3 dịch vụ local; DB hiện đã chạy được.
+# Phối hợp TV3 về env/kết nối; bàn giao cấu hình image/cổng/health cho TV6 làm CD và production.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-brewlite}
+      POSTGRES_USER: ${DB_USER:-brewlite}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Hay copy .env_vidu thanh .env}
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    volumes:
+      - brewlite_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      API_PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-brewlite}
+      DB_PASSWORD: ${DB_PASSWORD:?Hay copy .env_vidu thanh .env}
+      DB_NAME: ${DB_NAME:-brewlite}
+      JWT_SECRET: ${JWT_SECRET:?Hay dat JWT_SECRET trong .env}
+      JWT_EXPIRES_IN_SECONDS: ${JWT_EXPIRES_IN_SECONDS:-3600}
+      FRONTEND_ORIGIN: http://localhost:3000
+      PRODUCT_DATA_SOURCE: postgres
+    ports:
+      - "127.0.0.1:${API_PORT:-4000}:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      API_BASE_URL: http://api:4000
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+volumes:
+  brewlite_data:

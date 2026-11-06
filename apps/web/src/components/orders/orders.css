@@ -1,0 +1,197 @@
+/* TV6 — Style riêng cho trang đơn hàng. Tiền tố ord- để không đụng globals.css của TV1. */
+.ord-page {
+  padding-block: 40px 64px;
+  max-width: 100%;
+}
+.ord-page > h1 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 32px;
+}
+.ord-sub {
+  margin: 0 0 24px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.ord-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.ord-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.ord-card:hover {
+  border-color: #b8c4b3;
+}
+.ord-card strong {
+  font-size: 15px;
+}
+.ord-card small,
+.ord-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+.ord-card-total {
+  text-align: right;
+  font-weight: 700;
+}
+.ord-badge {
+  display: inline-block;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+.ord-badge-good {
+  background: #e6f1e8;
+  color: #1f5a35;
+  border-color: #c5dfcb;
+}
+.ord-badge-wait {
+  background: #fff3df;
+  color: #8a5a12;
+  border-color: #f0d9ab;
+}
+.ord-badge-bad {
+  background: #fde8e6;
+  color: #9a2b22;
+  border-color: #f2c3be;
+}
+.ord-badge-off {
+  background: #eeefea;
+  color: #5d665f;
+  border-color: #dcded6;
+}
+.ord-more {
+  margin-top: 18px;
+  text-align: center;
+}
+.ord-section {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.ord-section h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+.ord-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.ord-line {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 16px;
+  font-size: 14px;
+}
+.ord-line span:last-child {
+  text-align: right;
+}
+.ord-sum {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+.ord-sum div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.ord-sum .ord-total {
+  font-size: 17px;
+  font-weight: 700;
+}
+.ord-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+.ord-actions .primary-button,
+.ord-actions .outline-button {
+  flex: 1 1 0;
+  min-height: 44px;
+  text-align: center;
+}
+.mobile-shell .pay-panel {
+  width: 100%;
+  padding: 18px 14px;
+}
+.mobile-shell .pay-qr {
+  width: 100%;
+  max-width: 340px;
+  padding: 12px;
+}
+.mobile-shell .pay-qr-image {
+  width: min(100%, 280px);
+  height: auto;
+  aspect-ratio: 1;
+}
+.mobile-shell .ord-actions {
+  width: 100%;
+  margin-top: 16px;
+}
+.mobile-shell .ord-actions > * {
+  min-width: 0;
+  white-space: normal;
+}
+.ord-danger {
+  border-color: #c9766d;
+  color: #9a2b22;
+  background: transparent;
+}
+.ord-notice {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-radius: 6px;
+  background: #f4f6ef;
+  font-size: 13px;
+}
+.ord-result {
+  text-align: center;
+  padding: 48px 16px;
+}
+.ord-result h1 {
+  margin: 8px 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+}
+.ord-result p {
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.ord-result .ord-actions {
+  justify-content: center;
+}
+@media (max-width: 520px) {
+  .ord-page {
+    padding-block: 24px 48px;
+  }
+  .ord-page > h1 {
+    font-size: 26px;
+  }
+  .ord-card {
+    grid-template-columns: 1fr;
+  }
+  .ord-card-total {
+    text-align: left;
+  }
+  .ord-actions > * {
+    flex: 1 1 100%;
+  }
+}

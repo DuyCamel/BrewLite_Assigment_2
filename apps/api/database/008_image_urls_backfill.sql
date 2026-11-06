@@ -1,0 +1,42 @@
+-- Repair databases where 004 ran before the product seed; preserve custom images.
+UPDATE products AS p
+SET image_url = images.url
+FROM (VALUES
+  ('ca-phe-sua', '/images/products/ca-phe-sua.jpg'),
+  ('bac-xiu', '/images/products/bac_xiu.webp'),
+  ('americano', '/images/products/americano.jpg'),
+  ('latte', '/images/products/latte-da.jpg'),
+  ('tra-dao', '/images/products/tra_dao_cam_sa.jpg'),
+  ('tra-vai', '/images/products/tra_vai.jpg'),
+  ('matcha-latte', '/images/products/matcha_latte.jpg'),
+  ('chocolate', '/images/products/choco_latte.jpg'),
+  ('espresso', '/images/products/espresso.jpg'),
+  ('cappuccino', '/images/products/cappuchino.jpg'),
+  ('ca-phe-den', '/images/products/cafe_den.webp'),
+  ('cold-brew', '/images/products/cold_brew.jpg'),
+  ('caramel-latte', '/images/products/caramel_latte.jpg'),
+  ('vanilla-latte', '/images/products/Vanilla_Latte.jpg'),
+  ('mocha', '/images/products/mocha.jpg'),
+  ('ca-phe-dua', '/images/products/cafe_dua.jpeg'),
+  ('tra-chanh', '/images/products/tra_chanh.jpg'),
+  ('tra-tac', '/images/products/tra_tac.jpg'),
+  ('tra-dau', '/images/products/tra_dau.jpg'),
+  ('tra-xoai', '/images/products/tra_xoai.jpg'),
+  ('tra-chanh-day', '/images/products/tra_chanh_day.webp'),
+  ('tra-oi-hong', '/images/products/tra_oi_hong.png'),
+  ('tra-sen', '/images/products/trasen.jpg'),
+  ('tra-luu', '/images/products/tra_luu.jpg'),
+  ('matcha-da', '/images/products/matcha_da_xay.png'),
+  ('matcha-espresso', '/images/products/matcha_espresso.png'),
+  ('cacao-nong', '/images/products/cacao_nong.jpg'),
+  ('sua-tuoi', '/images/products/sua.jpg'),
+  ('sua-tuoi-tran-chau', '/images/products/sua_tuoi_tran_chau.jpeg'),
+  ('soda-chanh', '/images/products/soda_chanh.webp'),
+  ('soda-viet-quat', '/images/products/soda_vietquoc.jpg'),
+  ('nuoc-cam', '/images/products/cam_ep.jpg'),
+  ('nuoc-dua', '/images/products/nuoc_dua.webp'),
+  ('yogurt-dau', '/images/products/sua_chua_dau.jpg'),
+  ('yogurt-xoai', '/images/products/sua_chua_xoai.png'),
+  ('nuoc-suoi', '/images/products/nuoc_khoang.jpg')
+) AS images(id, url)
+WHERE p.id = images.id AND p.image_url IS NULL;

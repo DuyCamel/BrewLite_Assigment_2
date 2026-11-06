@@ -1,0 +1,86 @@
+.pay-panel {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  text-align: center;
+}
+.pay-panel h2,
+.pay-panel p {
+  margin: 0;
+}
+.pay-panel h2 {
+  font-size: 20px;
+}
+.pay-panel p {
+  color: var(--muted);
+  font-size: 14px;
+}
+.pay-qr {
+  width: min(100%, 340px);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.pay-qr-image {
+  display: block;
+  width: 280px;
+  height: 280px;
+  object-fit: contain;
+}
+.pay-transfer {
+  width: min(100%, 500px);
+  display: grid;
+  gap: 12px;
+  margin: 4px 0;
+  text-align: left;
+}
+.pay-transfer > div {
+  display: grid;
+  gap: 5px;
+}
+.pay-transfer dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+.pay-transfer dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.pay-transfer code {
+  font-size: 13px;
+  user-select: all;
+}
+.pay-copy {
+  min-height: 34px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--green);
+}
+.pay-panel .pay-note {
+  width: min(100%, 500px);
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #f4f6ef;
+}
+.pay-panel .primary-button {
+  margin-top: 8px;
+}
+@media (max-width: 520px) {
+  .pay-panel {
+    padding: 18px 14px;
+  }
+}

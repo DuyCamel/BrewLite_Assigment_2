@@ -1,0 +1,104 @@
+/* TV3 — Style form đăng nhập/đăng ký. Dùng lại biến màu/font của globals.css (TV1) và nút .primary-button; CSS module để không đụng file CSS chung. */
+.page {
+  width: min(460px, calc(100% - 40px));
+  margin: 56px auto 96px;
+}
+.title {
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1.15;
+  margin: 0 0 10px;
+}
+.lead {
+  margin: 0 0 28px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.notice,
+.alert {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.notice {
+  background: #f1f2e9;
+  color: var(--ink);
+}
+.alert {
+  border: 1px solid #d9a79d;
+  background: #fbeeea;
+  color: #7a2316;
+}
+.form {
+  display: grid;
+  gap: 18px;
+}
+.field {
+  display: grid;
+  gap: 6px;
+}
+.label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.input {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid #c8d0c7;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 15px;
+}
+.input:disabled {
+  background: #f4f5ef;
+  color: var(--muted);
+}
+.inputInvalid {
+  border-color: #a8321f;
+}
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.error {
+  margin: 0;
+  color: #a8321f;
+  font-size: 13px;
+  font-weight: 600;
+}
+.submit {
+  width: 100%;
+  margin-top: 4px;
+}
+.submit:disabled {
+  opacity: 0.65;
+  cursor: progress;
+}
+.forgot {
+  margin: -8px 0 0;
+  font-size: 14px;
+  text-align: right;
+}
+.forgot a {
+  color: var(--green);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.switch {
+  margin: 24px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.switch a {
+  color: var(--green);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

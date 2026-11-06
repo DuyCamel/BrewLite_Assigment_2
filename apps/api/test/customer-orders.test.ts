@@ -12,6 +12,8 @@ import { NestFactory } from "@nestjs/core";
 import { AppModule } from "../src/app.module.js";
 import { OrderStateService } from "../src/services/order-state.service.js";
 import { CustomerOrdersService } from "../src/services/customer-orders.service.js";
+import { OrderExpiryJob } from "../src/services/OrderExpiryJob.js";
+import { OrdersService } from "../src/services/orders.service.js";
 import type { CustomerOrderModel } from "../src/models/customer-order.model.js";
 import type { OrderStatus } from "../src/types/contracts.js";
 
@@ -192,6 +194,8 @@ test("getMyOrders: limit/offset sai → 400, mặc định limit 20", async () =
 test("getOrderDetail: 404 khi không thuộc user, 400 khi mã rỗng, canCancel=false khi PROCESSING", async () => {
   const detailRow = {
     ...row("o1"),
+    qr_expires_at: new Date("2026-10-20T10:05:00Z"),
+    qr_attempts: 1,
     promotion_code: null,
     points_earned: null,
     items: [],
@@ -217,6 +221,8 @@ test("getOrderDetail: 404 khi không thuộc user, 400 khi mã rỗng, canCancel
   );
   const detail = await service.getOrderDetail("u1", "o1");
   assert.equal(detail.paymentCode, "DH00000001");
+  assert.equal(detail.qrExpiresAt, "2026-10-20T10:05:00.000Z");
+  assert.equal(detail.qrAttempts, 1);
   assert.equal(detail.canCancel, false);
   assert.equal(detail.canRetryPayment, false);
   assert.equal(detail.payments[0].createdAt, "2026-10-20T10:01:00.000Z");
@@ -239,4 +245,13 @@ test("GET /orders/me và /orders/:id trả 401 khi chưa có JWT (API đóng, kh
     const response = await fetch(`${origin}${path}`);
     assert.equal(response.status, 401, path);
   }
+});
+
+test("POST /orders/:id/reissue-qr yêu cầu đăng nhập", async () => {
+  const response = await fetch(`${origin}/orders/abc/reissue-qr`, { method: "POST" });
+  assert.equal(response.status, 401);
+});
+
+test("expiry job receives the real OrdersService from Nest", () => {
+  assert.equal(Reflect.get(app.get(OrderExpiryJob), "ordersService"), app.get(OrdersService));
 });

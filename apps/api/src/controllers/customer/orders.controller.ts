@@ -126,4 +126,15 @@ export class OrdersController {
       orderId.trim(),
     );
   }
+
+  @Post(CUSTOMER_ROUTES.orders.reissueQr)
+  reissueQr(
+    @Req() request: AuthenticatedRequest,
+    @Param("id") orderId?: string,
+  ) {
+    if (typeof orderId !== "string" || orderId.trim() === "") {
+      throw new BadRequestException("Mã đơn không hợp lệ");
+    }
+    return this.orders.reissueQr(currentUserId(request), orderId.trim());
+  }
 }

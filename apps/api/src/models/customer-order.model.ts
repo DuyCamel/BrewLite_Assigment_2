@@ -32,6 +32,8 @@ export interface OrderDetailRow {
   created_at: Timestamp;
   expires_at: Timestamp;
   points_earned: number | null;
+  qr_expires_at: Timestamp;
+  qr_attempts: number;
   // json_agg: đã đúng dạng camelCase theo json_build_object bên dưới.
   items: Array<{
     id: string;
@@ -75,7 +77,7 @@ export class CustomerOrderModel {
   ): Promise<OrderSummaryRow[]> {
     return this.run<OrderSummaryRow>(
       `SELECT o.id, o.payment_code, o.status, o.subtotal, o.discount, o.total,
-              o.created_at, o.expires_at,
+               o.created_at, o.expires_at,
               (SELECT COALESCE(SUM(i.quantity), 0)::int
                  FROM order_items i WHERE i.order_id = o.id) AS item_count,
               (SELECT p.status FROM payments p
@@ -100,7 +102,7 @@ export class CustomerOrderModel {
   ): Promise<OrderDetailRow | undefined> {
     const rows = await this.run<OrderDetailRow>(
       `SELECT o.id, o.payment_code, o.status, o.subtotal, o.discount, o.total,
-              o.created_at, o.expires_at,
+               o.created_at, o.expires_at, o.qr_expires_at, o.qr_attempts,
               (SELECT pr.code FROM promotions pr WHERE pr.id = o.promotion_id) AS promotion_code,
               (SELECT l.points FROM loyalty_transactions l
                 WHERE l.order_id = o.id AND l.type = 'EARN') AS points_earned,

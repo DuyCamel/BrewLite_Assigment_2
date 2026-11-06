@@ -10,6 +10,7 @@ export const CUSTOMER_ROUTES = {
     detail: ":id",
     cancel: ":id/cancel",
     retryPayment: ":id/retry-payment",
+    reissueQr: ":id/reissue-qr",
   },
   payments: {
     base: "payments",

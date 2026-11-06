@@ -106,11 +106,31 @@ Các lệnh trên là **hướng dẫn cần kiểm chứng trên bản main m�
 ### Docker Compose toàn bộ
 
 ```bash
-docker compose config
+docker compose config --services
 docker compose up --build
 ```
 
 Compose được cấu hình cho `db`, `api`, `web`. Phải kiểm tra health, kết nối giữa container, migration/seed, cổng và dữ liệu bền vững. Nếu Docker chưa chạy được, ghi lỗi vào issue và không đánh dấu Task 5.2 hoàn thành.
+
+### Mở lại Docker sau khi bật máy (Windows PowerShell)
+
+Mở Docker Desktop và chờ Docker Engine chạy. Tại thư mục gốc repo, dùng **cùng một cửa sổ PowerShell** cho các lệnh Compose sau. Máy đang chạy PostgreSQL local ở cổng `5432` nên cổng DB Docker trên máy là `5433`; bên trong container DB vẫn dùng `5432`.
+
+```powershell
+$env:DB_PORT="5433"
+docker compose up -d
+docker compose ps
+```
+
+Chờ `db` và `api` hiện `healthy`, rồi mở http://localhost:3000. Có thể kiểm tra API ở http://localhost:4000/health và thực đơn ở http://localhost:4000/products. **Không chạy lại `db:seed` mỗi lần khởi động**: dữ liệu DB Docker được giữ trong volume. Nếu sửa code hoặc cấu hình VietQR dùng lúc build web, chạy `docker compose up --build -d`; nếu chỉ sửa thời gian đơn/QR hoặc khóa webhook trong `.env`, chạy `docker compose up -d --no-deps api`.
+
+Muốn thử webhook SePay, mở **PowerShell thứ hai** và giữ lệnh sau chạy trong khi thử thanh toán:
+
+```powershell
+cloudflared tunnel --url http://localhost:4000
+```
+
+Quick Tunnel có thể đổi URL sau mỗi lần chạy. Cập nhật SePay webhook thành `https://<URL-moi>.trycloudflare.com/webhooks/sepay`; không đưa khóa webhook lên web hoặc vào URL. Khi dùng xong, dừng tunnel bằng `Ctrl+C`, rồi dừng container bằng `docker compose down` trong cửa sổ PowerShell đầu tiên. **Không dùng `docker compose down -v`** vì `-v` xóa volume chứa DB Docker.
 
 ## 5. Kiểm tra chất lượng và build
 

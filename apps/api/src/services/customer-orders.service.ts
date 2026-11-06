@@ -119,6 +119,8 @@ export class CustomerOrdersService {
       createdAt: toIso(row.created_at),
       expiresAt: toIso(row.expires_at),
       items: row.items,
+      qrExpiresAt: toIso(row.qr_expires_at),
+      qrAttempts: row.qr_attempts,
       payments,
       pointsEarned: row.points_earned,
       canCancel: this.orderState.canCancel(row.status, hasProcessing),

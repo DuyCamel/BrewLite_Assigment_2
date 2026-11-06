@@ -16,6 +16,7 @@ test("simulated SePay transfer pays an order once after database commit", async 
   try {
     await pg.exec(readFileSync(new URL("../database/001_schema.sql", import.meta.url), "utf8"));
     await pg.exec(readFileSync(new URL("../database/007_order_payment_codes.sql", import.meta.url), "utf8"));
+    await pg.exec(readFileSync(new URL("../database/009_qr_reissue.sql", import.meta.url), "utf8"));
     await pg.exec(`INSERT INTO users (id, email, password_hash, display_name)
       VALUES ('customer-1', 'test@example.com', '$2b$10$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'Customer');
       INSERT INTO products (id, name, category, price, sizes)

@@ -1,15 +1,15 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { dataSource } from "../config/environment.js";
 import { OrdersService } from "./orders.service.js";
 
-const INTERVAL_MS = 60_000; // kiểm tra mỗi 60 giây
+const INTERVAL_MS = 5_000; // kiểm tra mỗi 5 giây để hoàn tồn sớm sau QR thứ hai
 
 @Injectable()
 export class OrderExpiryJob implements OnModuleInit, OnModuleDestroy {
   private timer: NodeJS.Timeout | null = null;
   private running = false;
 
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(@Inject(OrdersService) private readonly ordersService: OrdersService) {}
 
   onModuleInit() {
     if (dataSource() === "sample") {

@@ -5,6 +5,7 @@ import {
   ConfigurationError,
   dataSource,
   mailConfig,
+  paymentLifetimes,
   passwordResetConfig,
   usesLocalSampleJwtSecret,
 } from "./config/environment.js";
@@ -22,6 +23,7 @@ async function bootstrap() {
   if (dataSource() === "postgres") {
     authConfig();
     passwordResetConfig();
+    paymentLifetimes();
     if (!mailConfig().smtp)
       console.warn(
         process.env.NODE_ENV === "production"

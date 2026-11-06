@@ -61,6 +61,8 @@ export interface OrderDetail {
   promotionCode: string | null;
   createdAt: string;
   expiresAt: string;
+  qrExpiresAt: string;
+  qrAttempts: number;
   items: OrderItemView[];
   /** Mới nhất trước. */
   payments: PaymentAttemptView[];

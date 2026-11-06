@@ -5,7 +5,7 @@ import {
   mailConfig,
   type MailConfig,
   type SmtpConfig,
-} from "../config/environment";
+} from "../config/environment.js";
 export interface PasswordResetMail {
   to: string;
   resetUrl: string;

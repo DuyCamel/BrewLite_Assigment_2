@@ -9,6 +9,7 @@ import type {
   ProductPricing,
 } from "../types/order.types.js";
 import type { PoolClient, OrderStatus, OrderLine } from "../types/contracts.js";
+import { paymentLifetimes } from "../config/environment.js";
 
 @Injectable()
 export class OrderModel {
@@ -16,10 +17,11 @@ export class OrderModel {
     order: NewOrder,
     transaction: PoolClient,
   ): Promise<OrderRow> {
+    const { orderMinutes, qrMinutes } = paymentLifetimes();
     const result = await transaction.query(
-      `INSERT INTO orders (id, user_id, subtotal, discount, total, promotion_id, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, now() + interval '5 minutes')
-        RETURNING id, payment_code AS "paymentCode", status, subtotal, discount, total, expires_at AS "expiresAt"`,
+      `INSERT INTO orders (id, user_id, subtotal, discount, total, promotion_id, expires_at, qr_expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, now() + $7 * interval '1 minute', now() + $8 * interval '1 minute')
+         RETURNING id, payment_code AS "paymentCode", status, subtotal, discount, total, expires_at AS "expiresAt"`,
       [
         order.id,
         order.userId,
@@ -27,6 +29,8 @@ export class OrderModel {
         order.discount,
         order.total,
         order.promotionId,
+        orderMinutes,
+        qrMinutes,
       ],
     );
     return result.rows[0] as OrderRow;
@@ -63,7 +67,8 @@ export class OrderModel {
   ): Promise<OrderRecord | null> {
     const result = await transaction.query(
       `SELECT id, user_id AS "userId", status, subtotal, discount, total,
-              stock_released AS "stockReleased", expires_at AS "expiresAt"
+               stock_released AS "stockReleased", expires_at AS "expiresAt",
+               qr_expires_at AS "qrExpiresAt", qr_attempts AS "qrAttempts"
        FROM orders
        WHERE id = $1
        FOR UPDATE`,
@@ -90,7 +95,7 @@ export class OrderModel {
       `SELECT o.id
        FROM orders o
        WHERE o.status = 'PENDING'
-         AND o.expires_at < now()
+          AND (o.expires_at < now() OR (o.qr_attempts = 2 AND o.qr_expires_at < now()))
          AND NOT EXISTS (
            SELECT 1
            FROM payments p
@@ -151,14 +156,37 @@ export class OrderModel {
     orderId: string,
     transaction: PoolClient,
   ): Promise<boolean> {
+    const { orderMinutes, qrMinutes } = paymentLifetimes();
     const result = await transaction.query(
       `UPDATE orders
        SET status = 'PENDING',
-           stock_released = false,
-           expires_at = now() + interval '5 minutes'
-       WHERE id = $1 AND status = 'PAYMENT_FAILED'`,
-      [orderId],
+            stock_released = false,
+            payment_code = 'DH' || lpad(nextval('orders_payment_code_seq')::text, 8, '0'),
+            qr_attempts = 1,
+            expires_at = now() + $2 * interval '1 minute',
+            qr_expires_at = now() + $3 * interval '1 minute'
+        WHERE id = $1 AND status = 'PAYMENT_FAILED'`,
+      [orderId, orderMinutes, qrMinutes],
     );
     return result.rowCount === 1;
+  }
+
+  async reissueQr(orderId: string, transaction: PoolClient) {
+    const { qrMinutes } = paymentLifetimes();
+    const result = await transaction.query<{
+      paymentCode: string;
+      qrExpiresAt: Date;
+      qrAttempts: number;
+    }>(
+      `UPDATE orders SET
+         payment_code = 'DH' || lpad(nextval('orders_payment_code_seq')::text, 8, '0'),
+         qr_expires_at = LEAST(expires_at, now() + $2 * interval '1 minute'),
+         qr_attempts = 2
+       WHERE id = $1 AND status = 'PENDING' AND qr_attempts = 1
+         AND qr_expires_at <= now() AND expires_at > now()
+       RETURNING payment_code AS "paymentCode", qr_expires_at AS "qrExpiresAt", qr_attempts AS "qrAttempts"`,
+      [orderId, qrMinutes],
+    );
+    return result.rows[0] ?? null;
   }
 }

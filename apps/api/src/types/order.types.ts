@@ -39,6 +39,8 @@ export interface OrderRecord {
   total: number;
   stockReleased: boolean;
   expiresAt: Date;
+  qrExpiresAt: Date;
+  qrAttempts: number;
 }
 
 export interface StockSnapshot {

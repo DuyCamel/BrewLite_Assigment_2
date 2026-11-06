@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { OrderDetail } from "@/types/customer-order";
-import { fetchOrderDetail, retryOrderPayment } from "@/lib/client-api";
+import { fetchOrderDetail, reissueOrderQr, retryOrderPayment } from "@/lib/client-api";
 import { formatVnd } from "@/features/orders/order-format";
 import { ErrorBlock, LoadingBlock } from "@/components/orders/OrderBlocks";
 import "./payment.css";
@@ -34,7 +34,8 @@ function PaymentContent() {
   const qrUrl = order?.paymentCode && qrBankId && qrAccountNo
     ? `https://vietqr.app/img?${new URLSearchParams({ acc: qrAccountNo, bank: qrBankId, amount: String(order.total), des: transferDescription, template: "compact", showinfo: "true", holder: qrAccountName })}`
     : null;
-  const secondsLeft = order ? Math.max(0, Math.ceil((Date.parse(order.expiresAt) - now) / 1000)) : 0;
+  const secondsLeft = order ? Math.max(0, Math.ceil((Date.parse(order.qrExpiresAt) - now) / 1000)) : 0;
+  const orderSecondsLeft = order ? Math.max(0, Math.ceil((Date.parse(order.expiresAt) - now) / 1000)) : 0;
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -77,6 +78,7 @@ function PaymentContent() {
           router.replace(`/payment-status?orderId=${encodeURIComponent(orderId)}`);
           return;
         }
+        setOrder(latest);
       } catch {
         if (controller.signal.aborted) return;
       }
@@ -106,6 +108,33 @@ function PaymentContent() {
     }
   };
 
+  const handleReissue = async () => {
+    if (
+      !order ||
+      isProcessing ||
+      order.status !== "PENDING" ||
+      order.qrAttempts !== 1 ||
+      secondsLeft > 0 ||
+      orderSecondsLeft === 0
+    )
+      return;
+    setIsProcessing(true);
+    setError("");
+    try {
+      await reissueOrderQr(order.id);
+      setOrder(await fetchOrderDetail(order.id));
+      setNow(Date.now());
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Không thể cấp lại QR. Hãy tải lại đơn hàng.",
+      );
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   if (loading) {
     return (
       <section className="container ord-page">
@@ -114,7 +143,7 @@ function PaymentContent() {
     );
   }
 
-  if (error || !order) {
+  if (!order) {
     return (
       <section className="container ord-page">
         <ErrorBlock title="Lỗi thanh toán" message={error || "Đơn hàng không hợp lệ"} />
@@ -137,9 +166,11 @@ function PaymentContent() {
         {!order.paymentCode && <p className="pay-note" role="alert">API chưa trả mã thanh toán DH. Khởi động lại backend và tạo đơn mới trước khi hiện QR.</p>}
         {order.paymentCode && !qrUrl && <p className="pay-note">Chưa cấu hình tài khoản nhận tiền VietQR. Cần đặt NEXT_PUBLIC_VIETQR_BANK_ID và NEXT_PUBLIC_VIETQR_ACCOUNT_NO.</p>}
 
-        {secondsLeft === 0 && order.status === "PENDING" && <p className="pay-note" role="status">Đơn và mã QR đã hết hạn. Vui lòng tạo đơn mới.</p>}
+        {orderSecondsLeft === 0 && order.status === "PENDING" && <p className="pay-note" role="status">Đơn đã hết hạn, đang chờ hủy và hoàn tồn. Vui lòng tạo đơn mới.</p>}
+        {secondsLeft === 0 && orderSecondsLeft > 0 && order.status === "PENDING" &&
+          <p className="pay-note" role="status">QR đã hết hạn. {order.qrAttempts === 1 ? "Bạn được cấp lại một lần." : "Đơn đang chờ hủy và hoàn tồn."}</p>}
 
-        {order.status === "PENDING" && secondsLeft > 0 && qrUrl && (
+        {order.status === "PENDING" && secondsLeft > 0 && orderSecondsLeft > 0 && qrUrl && (
           <div className="pay-qr">
             <h3>Quét mã QR để chuyển khoản</h3>
             <img className="pay-qr-image" src={qrUrl} alt="Mã QR chuyển khoản VietQR" />
@@ -153,6 +184,11 @@ function PaymentContent() {
       </div>
 
       <div className="ord-actions">
+        {order.status === "PENDING" && secondsLeft === 0 && orderSecondsLeft > 0 && order.qrAttempts === 1 && (
+          <button type="button" className="primary-button" onClick={handleReissue} disabled={isProcessing}>
+            {isProcessing ? "Đang cấp QR..." : "Lấy QR mới (lần cuối)"}
+          </button>
+        )}
         {order.status === "PAYMENT_FAILED" ? (
           <button
             type="button"

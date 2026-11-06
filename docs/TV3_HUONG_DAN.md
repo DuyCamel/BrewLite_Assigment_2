@@ -139,7 +139,7 @@ Workflow **Check scaffold**, job **`check`**: báo tên này cho TV6. `ci.yml` c
 - Nhắn nhóm: TV2 chuyển người chưa đăng nhập sang `/login?returnUrl=/checkout` (hoặc dùng `authorizedRequest`); TV4/5/6 dùng `JwtAuthGuard` + `@CurrentUser()` rồi mới bỏ 501 của route mình.
 - API đơn của TV4 (`POST /orders`, `POST /orders/:id/cancel`) và thanh toán của TV5 hiện vẫn là khung trả 501 nên chưa gắn guard; khi triển khai, gắn `@UseGuards(JwtAuthGuard)` và `@CurrentUser()` rồi sửa test 501 của route đó (`orders-auth.test.ts` là mẫu).
 - `package.json` gốc đang có thêm mục `dependencies.jsonwebtoken` (do chạy `npm i` ở gốc); backend đã khai báo riêng. Dọn bằng `npm uninstall jsonwebtoken` ở gốc repo rồi commit lại `package-lock.json`.
-- `.env_vidu` có `NEXT_PUBLIC_SEPAY_WEBHOOK_API_KEY`: mọi biến `NEXT_PUBLIC_*` bị nhúng vào trình duyệt, nên không bao giờ đặt khóa thật vào đó (nhờ TV5 xem lại tên biến, giá trị mẫu hiện là một URL).
+- `.env_vidu` chỉ để `SEPAY_WEBHOOK_API_KEY` ở phía API; `NEXT_PUBLIC_VIETQR_BANK_ID`, `NEXT_PUBLIC_VIETQR_ACCOUNT_NO` và `NEXT_PUBLIC_VIETQR_ACCOUNT_NAME` được nhúng vào trình duyệt để tạo QR, nên không đặt bí mật vào các biến `NEXT_PUBLIC_*`.
 - `npm run format` hiện sẽ sửa 48 file ngoài phạm vi TV3 (chủ yếu do khác biệt kiểu xuống dòng và dòng dài); nên làm trong một commit riêng của cả nhóm, đừng gộp vào PR Auth.
 - Đừng gửi hoặc commit file `.env` (chứa cấu hình cục bộ của bạn); `.gitignore` đã chặn, nhưng nhớ khi nén thư mục để gửi.
 

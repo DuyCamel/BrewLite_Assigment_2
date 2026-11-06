@@ -69,6 +69,22 @@ export function OrderDetailView() {
     return () => controller.abort();
   }, [orderId, attempt]);
 
+  useEffect(() => {
+    if (!orderId || state.kind !== "ready" || state.order.status !== "PENDING") return;
+    const controller = new AbortController();
+    const timer = setInterval(() => {
+      void fetchOrderDetail(orderId, controller.signal)
+        .then((order) => {
+          if (!controller.signal.aborted) setState({ kind: "ready", order });
+        })
+        .catch(() => {});
+    }, 5000);
+    return () => {
+      clearInterval(timer);
+      controller.abort();
+    };
+  }, [orderId, state.kind, state.kind === "ready" ? state.order.status : null]);
+
   const reload = () => {
     setState({ kind: "loading" });
     setAttempt((value) => value + 1);
@@ -138,6 +154,7 @@ function OrderBody({
   onConfirmCancel: () => void;
 }) {
   const payHref = `/payment?orderId=${encodeURIComponent(orderId)}`; // trang của TV5
+  const orderExpired = Date.parse(order.expiresAt) <= Date.now();
   return (
     <>
        <h1>Đơn #{order.paymentCode}</h1>
@@ -148,8 +165,11 @@ function OrderBody({
 
       {order.status === "PENDING" ? (
         <p className="ord-notice">
-          Đơn được giữ đến {formatDateTime(order.expiresAt)}. Quá hạn mà chưa
-          thanh toán, đơn sẽ tự hủy.
+          Đơn được giữ đến {formatDateTime(order.expiresAt)}. {orderExpired
+            ? order.payments.some((payment) => payment.status === "PROCESSING")
+              ? "Đang có giao dịch xử lý; chưa thể hủy và hoàn tồn an toàn."
+              : "Đang chờ hệ thống hủy và hoàn tồn."
+            : "Quá hạn mà chưa thanh toán, đơn sẽ tự hủy."}
         </p>
       ) : null}
       {cancel.message ? (
@@ -223,7 +243,7 @@ function OrderBody({
       ) : null}
 
       <div className="ord-actions">
-        {order.status === "PENDING" ? (
+        {order.status === "PENDING" && !orderExpired ? (
           <Link className="primary-button" href={payHref}>
             Thanh toán
           </Link>

@@ -31,6 +31,7 @@ async function main() {
                 "006_recipe_data.sql",
                 "007_order_payment_codes.sql",
                 "008_image_urls_backfill.sql",
+                "009_qr_reissue.sql",
               ].includes(
                 name,
               ),

@@ -22,7 +22,8 @@ export class OrdersService {
   constructor(
     @Inject(DatabaseService) private readonly db: DatabaseService,
     @Inject(OrderModel) private readonly orderModel: OrderModel,
-    @Inject(InventoryService) private readonly inventoryService: InventoryService,
+    @Inject(InventoryService)
+    private readonly inventoryService: InventoryService,
     @Inject(PromotionsService)
     private readonly promotionsService: PromotionsService,
   ) {}
@@ -177,7 +178,7 @@ export class OrdersService {
     });
   }
 
-  // Job hủy đơn PENDING quá hạn; mỗi đơn một transaction. Chưa có lịch gọi hàm này.
+  // Job hủy đơn quá hạn hoặc QR thứ hai quá hạn; mỗi đơn một transaction.
   async expirePendingOrders(): Promise<number> {
     const expiredIds = await this.db.withTransaction((client) =>
       this.orderModel.findExpiredPendingOrders(client),
@@ -189,6 +190,13 @@ export class OrdersService {
         await this.db.withTransaction(async (client) => {
           const order = await this.orderModel.findForUpdate(orderId, client);
           if (order === null || order.status !== "PENDING") {
+            return;
+          }
+          if (
+            new Date(order.expiresAt).getTime() > Date.now() &&
+            (order.qrAttempts < 2 ||
+              new Date(order.qrExpiresAt).getTime() > Date.now())
+          ) {
             return;
           }
           if (await this.orderModel.hasProcessingPayment(orderId, client)) {
@@ -211,6 +219,28 @@ export class OrdersService {
       }
     }
     return cancelled;
+  }
+
+  async reissueQr(userId: string, orderId: string) {
+    return this.db.withTransaction(async (client) => {
+      const order = await this.orderModel.findForUpdate(orderId, client);
+      if (!order || order.userId !== userId) {
+        throw new NotFoundException("Không tìm thấy đơn hàng");
+      }
+      if (
+        order.status !== "PENDING" ||
+        order.qrAttempts !== 1 ||
+        new Date(order.qrExpiresAt).getTime() > Date.now() ||
+        new Date(order.expiresAt).getTime() <= Date.now() ||
+        (await this.orderModel.hasProcessingPayment(orderId, client))
+      ) {
+        throw new ConflictException("Không thể cấp lại QR cho đơn này");
+      }
+      const renewed = await this.orderModel.reissueQr(orderId, client);
+      if (!renewed)
+        throw new ConflictException("Đơn vừa thay đổi, hãy tải lại");
+      return renewed;
+    });
   }
 
   // PAYMENT_FAILED -> PENDING: giữ tồn mới trước, hết hàng thì rollback và đơn vẫn PAYMENT_FAILED.

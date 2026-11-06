@@ -10,7 +10,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "concurrently -k -n API,WEB \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
+    "dev": "concurrently -k -n API,WEB,TUNNEL \"npm run dev -w apps/api\" \"npm run dev -w apps/web\" \"cloudflared tunnel --url http://localhost:4000\"",
     "build": "npm run build -w apps/api && npm run build -w apps/web",
     "typecheck": "npm run typecheck --workspaces",
     "lint": "eslint .",

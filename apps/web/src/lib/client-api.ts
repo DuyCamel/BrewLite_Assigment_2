@@ -106,6 +106,12 @@ export function retryOrderPayment(orderId: string): Promise<unknown> {
   );
 }
 
+export function reissueOrderQr(orderId: string): Promise<unknown> {
+  return request<unknown>(`/orders/${encodeURIComponent(orderId)}/reissue-qr`, {
+    method: "POST",
+  });
+}
+
 export function reconcilePayment(paymentId: string): Promise<unknown> {
   return request<unknown>(
     `/payments/${encodeURIComponent(paymentId)}/reconcile`,

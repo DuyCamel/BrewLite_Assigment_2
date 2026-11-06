@@ -49,6 +49,9 @@ export class SepayService {
       if (!order) {
         throw new BadRequestException("Không tìm thấy đơn tương ứng");
       }
+      if (order.qrAttempts === 2 && orderId === order.id) {
+        throw new ConflictException("Mã QR cũ không còn hiệu lực");
+      }
       if (order.status !== "PENDING") {
         throw new ConflictException(
           `Đơn không ở trạng thái PENDING: ${order.status}`,

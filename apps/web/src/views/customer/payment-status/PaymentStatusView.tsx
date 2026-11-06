@@ -190,7 +190,8 @@ function PaymentStatusContent() {
               Đang chờ ngân hàng xác nhận chuyển khoản. Vui lòng không đóng
               trang này và không chuyển tiền lần nữa…
             </p>
-            {new Date(order.expiresAt).getTime() > Date.now() && (
+            {new Date(order.expiresAt).getTime() > Date.now() &&
+              (new Date(order.qrExpiresAt).getTime() > Date.now() || order.qrAttempts === 1) && (
               <div className="ord-actions">
                 <Link className="primary-button" href={payHref}>
                   Xem mã QR thanh toán

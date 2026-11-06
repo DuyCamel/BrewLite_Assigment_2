@@ -19,6 +19,26 @@ export function dataSource(): "postgres" | "sample" {
     );
   return value;
 }
+export function paymentLifetimes(): {
+  orderMinutes: number;
+  qrMinutes: number;
+} {
+  const orderMinutes = Number(process.env.ORDER_TTL_MINUTES ?? "15");
+  const qrMinutes = Number(process.env.QR_TTL_MINUTES ?? "5");
+  if (
+    !Number.isSafeInteger(qrMinutes) ||
+    qrMinutes < 1 ||
+    qrMinutes > 1440 ||
+    !Number.isSafeInteger(orderMinutes) ||
+    orderMinutes < 2 * qrMinutes ||
+    orderMinutes > 10080
+  ) {
+    throw new ConfigurationError(
+      "ORDER_TTL_MINUTES phải ít nhất gấp đôi QR_TTL_MINUTES; cả hai phải là số phút nguyên dương hợp lệ",
+    );
+  }
+  return { orderMinutes, qrMinutes };
+}
 export interface AuthConfig {
   jwtSecret: string;
   accessTokenTtlSeconds: number;

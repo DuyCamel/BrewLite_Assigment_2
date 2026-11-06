@@ -27,9 +27,10 @@ export class SepayModel {
       total: number;
       userId: string;
       isUnexpired: boolean;
+      qrAttempts: number;
     }>(
-      `SELECT id, status, total, user_id AS "userId",
-              expires_at > now() AS "isUnexpired"
+      `SELECT id, status, total, user_id AS "userId", qr_attempts AS "qrAttempts",
+               (expires_at > now() AND qr_expires_at > now()) AS "isUnexpired"
        FROM orders
         WHERE id = $1 OR payment_code = $1
        FOR UPDATE`,

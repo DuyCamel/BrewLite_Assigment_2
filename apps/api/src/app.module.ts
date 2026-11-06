@@ -15,6 +15,7 @@ import { OrderStateService } from "./services/order-state.service.js";
 import { CustomerOrdersService } from "./services/customer-orders.service.js";
 import { ProductsService } from "./services/products.service.js";
 import { OrdersService } from "./services/orders.service.js";
+import { OrderExpiryJob } from "./services/OrderExpiryJob.js";
 import { UsersService } from "./services/users.service.js";
 import { AuthService } from "./services/auth.service.js";
 import { PasswordResetService } from "./services/password-reset.service.js";
@@ -54,6 +55,7 @@ import { SepayService } from "./sepay/sepay.services.js";
     { provide: Mailer, useFactory: () => createMailer() },
     OrderModel,
     OrdersService,
+    OrderExpiryJob,
     PromotionModel,
     PromotionsService,
     InventoryModel,

@@ -1,122 +1,148 @@
-# Phân công lập trình BrewLite cho 6 thành viên
+# PHÂN CÔNG MỚI — HOÀN THIỆN BREWLITE ASSIGNMENT 2
 
-Phân công hiện hành đã cân lại: TV1 nhận khuyến mãi và Docker local; TV2 nhận giao diện checkout; TV3 nhận CI; TV4 chỉ làm backend đơn/tồn; TV5 thanh toán/điểm; TV6 theo dõi đơn và CD/production. Nhóm điền họ tên vào bảng khi nhận việc.
+> **Đây là file phân công mới dựa trên những gì còn thiếu/chưa được kiểm chứng trong code Assignment 1 và repository Assignment 2, nhằm hoàn thiện đúng đề `Assignment2-BrewLite.pdf`.** Bảng này **thay thế phân công thực hiện cũ** cho giai đoạn hoàn thiện; không yêu cầu viết lại các module đã có. Giữ nguyên người phụ trách chính theo bảng phân công tổng hợp. Những việc đã có code nhưng chưa có minh chứng chạy/test được ghi là **kiểm chứng/bổ sung**, không coi là chưa viết.
 
-## Hiện trạng để không làm lại
+## 1. Nguyên tắc chung và thứ tự bắt buộc
 
-Đã có menu/tìm kiếm/lọc, API danh sách sản phẩm, khung ảnh và cách gắn imageUrl. Database 001/002/003 đã có schema, kiểm tra và dữ liệu mẫu; runner migrate/seed, 16 test, health và CI typecheck/test/build đã có. Đây không phải công việc cần viết lại từ đầu.
+- Assignment 2 gồm **Task 1 (Yêu cầu) → Task 2 (Mô hình hóa) → Task 3 (Kiến trúc) → Task 4 (Sprint 1/CI) → Task 5 (Sprint 2/Delivery)**. Đầu ra Task trước phải có trong Git và có lịch sử thay đổi trước khi nghiệm thu Task sau.
+- Code hiện ở `apps/web` (Next.js) và `apps/api` (NestJS), không còn ở `frontend`/`backend`. `main_du_phong` là bản dự phòng; phát triển qua nhánh riêng + PR vào `main`.
+- Đề bắt buộc mock thanh toán **Ví/Thẻ**; SePay/VietQR có sẵn là tích hợp bổ sung, phải test nhưng không thay thế mock.
+- **Trạng thái hiện tại:** Có menu/chi tiết, cart, auth, order, payment, loyalty, theo dõi đơn và nhiều bài test; có CI và Dockerfile. Chưa xác nhận build/Compose sau đổi thư mục; chưa thấy đủ docs Task 1–3, `.env.example`, ma trận truy vết, E2E thực thi, CD/production.
+- Mỗi người tự bổ sung test và minh chứng phần mình; người chủ trì E2E/CI/CD tổng hợp, không làm thay toàn bộ logic thành viên khác.
 
-Auth, Cart, Checkout và lịch sử/chi tiết đơn đã có luồng chính; Payment vẫn là khung TODO. PromotionInput đã được gắn vào Checkout nhưng backend mới xác nhận mã khi tạo đơn. Docker hiện chỉ chạy DB; Docker web/API, lint/required checks, CD và E2E nghiệp vụ cần hoàn thiện. Không có trang Admin/nhân viên.
+## 2. Bảng phân công tổng hợp MỚI
 
-Các đường dẫn frontend rút gọn `views/`, `features/`, `components/`, `app/` tính từ `frontend/src/`; backend rút gọn `services/`, `models/`, `controllers/`, `routes/`, `config/` tính từ `backend/src/`. Các file Docker, README và workflows dùng đường dẫn từ gốc repo.
+| TV | Thành viên | Module phụ trách (giữ nguyên) | Việc **còn thiếu / phải hoàn thiện** | Task đề | Đầu ra/tiêu chí bàn giao |
+| --- | --- | --- | --- | --- | --- |
+| **1** | **Nguyễn Khánh Duy** | Sản phẩm, chi tiết/size/topping, khuyến mãi, giao diện chung, Docker local | Viết lại README (đã giao trong commit tài liệu này); chuẩn hóa hướng dẫn; kiểm chứng GET /products/:id, UI menu/loading/empty/error, size/topping, validate mã; test các trường hợp biên; Docker Compose chạy web+API+DB; phối hợp SePay với TV5 | 4.1, 4.3, 5.1, 5.2 | README đúng cấu trúc; test sản phẩm/khuyến mãi; `docker compose up --build` chạy và health đạt, hướng dẫn local |
+| **2** | **Tô Minh Trí** | Giỏ hàng và giao diện checkout | Kiểm thử gộp sản phẩm theo size/topping, quantity 1–99, lưu giỏ/reload/login; xử lý empty/loading/error; chống double-submit; khớp giá chính thức từ API; giỏ chỉ xóa khi PAID; hỗ trợ E2E cart/checkout | 5.1, 5.2 | UI cart/checkout mobile-first hoạt động; test và minh chứng luồng thành công/thất bại |
+| **3** | **Võ Hoàng Hiểu Băng** | Đăng ký/đăng nhập, JWT, bảo mật, env, CI | Rà soát auth/guard, quyền truy cập, hết hạn token, email trùng; chuẩn hóa `.env.example` (không secret); chạy `npm ci`/lint/test/build trên cấu trúc mới; CI PR và required checks; minh chứng CI xanh và CI phát hiện lỗi; phối hợp bảo mật production | 4.1, 4.4, 5.1, 5.2, 5.3 | Auth/security test; `.env.example`; PR CI chạy tự động và chặn merge khi lỗi |
+| **4** | **Trần Lê Phúc Toàn** | Backend tạo/hủy đơn, giá chốt, tồn kho, migration | Rà soát create/cancel/expire/retry, transaction/rollback, giữ-hoàn tồn đúng một lần, tranh tồn đồng thời; hoàn thiện `previewOrder` nếu nhóm chốt API; integration test tạo đơn/DB; migration/seed tái tạo DB sạch; cùng TV5 kiểm thử retry/payment | 5.1, 5.2 | Test concurrency, rollback, hết hàng, hủy/retry; DB migrate/seed lại được; API không tin giá client |
+| **5** | **Nguyễn Thu Thảo** | Payment API/UI, mock Ví/Thẻ, loyalty | Xác nhận mock Ví/Thẻ đáp ứng Task 5.1; test idempotency (cùng key/khác payload/đồng thời), timeout/reconcile/retry, chống trả tiền hai lần; PAID + EARN đúng một lần; kiểm tra webhook/SePay phối hợp TV1; integration test payment | 5.1, 5.2 | Mock payment hoạt động; test thành công/thất bại/timeout/retry, EARN không trùng; contract trạng thái bàn giao TV6 |
+| **6** | **Lưu Trọng Thái Anh** | Kết quả thanh toán, lịch sử/chi tiết đơn, trạng thái, CD/production/E2E | Test polling/ownership/clear cart khi PAID; thay `tests/e2e/checkout.spec.todo.ts` bằng E2E thực thi; xây dựng CD image/tag/registry/deploy/migration/health/smoke/rollback; HTTPS production, release/tag, release notes, demo và Sprint Review/Retro; tổng hợp tài liệu bàn giao | 5.1–5.4 | Ít nhất 1 E2E xanh; CD chạy; URL HTTPS web/API/health; rollback, release và minh chứng demo |
 
-## Bảng giao việc
+**Lưu ý:** Bảng trên là phân công **các đầu việc code/kiểm thử/triển khai còn thiếu**, không phải tuyên bố toàn bộ Task 1–3 đã hoàn tất. Phân công đầu ra tài liệu Task 1–3 và truy vết ở mục 3 bên dưới để không bỏ sót điểm đề.
 
-| TV  | Họ và tên | Phần phụ trách chính                      | Việc phụ gắn cùng module                                    |
-| --- | --------- | ----------------------------------------- | ----------------------------------------------------------- |
-| 1   | Nguyễn Khánh Duy | Sản phẩm, chi tiết/tùy chọn và khuyến mãi | Giao diện chung, ảnh, Docker/Compose chạy local             |
-| 2   | Tô Minh Trí | Giỏ hàng và giao diện checkout            | Lưu giỏ, gắn PromotionInput của TV1, nối API TV4            |
-| 3   | Võ Hoàng Hiểu Băng   | Đăng ký/đăng nhập, JWT và bảo mật         | Env/API client/error dùng chung, CI và required checks      |
-| 4   | Trần Lê Phúc Toàn  | Backend tạo/hủy đơn và tồn kho            | Giá chốt, transaction, hết hạn, hoàn/giữ tồn lại            |
-| 5   | Nguyễn Thu Thảo  | Giao diện/API thanh toán và loyalty       | Mock gateway, idempotency, timeout/đối soát                 |
-| 6   | Lưu Trọng Thái Anh | Kết quả thanh toán, lịch sử/chi tiết đơn  | Quy tắc trạng thái, CD/production, ghép E2E/README bàn giao |
+## 3. Bảng phân công tài liệu bắt buộc Task 1–3 và truy vết
 
-## Thành viên 1 Sản phẩm khuyến mãi và Docker local
+| Task / đầu ra bắt buộc | Chủ trì | Phối hợp | Việc cụ thể / file cần tạo |
+| --- | --- | --- | --- |
+| **1.1 Context & Scope** | **TV1 — Khánh Duy** | Cả nhóm | `docs/requirements/context-and-scope.md`: bối cảnh, bảng stakeholder/mục tiêu, in-scope/out-of-scope, giả định, ràng buộc, rủi ro |
+| **1.2 SRS** | **TV6 — Thái Anh** | TV1–TV5 cung cấp acceptance criteria module | `docs/requirements/srs.md`: FR/NFR đánh mã, MoSCoW, tiêu chí chấp nhận kiểm chứng được, use-case tổng quát |
+| **1.3 Use-case trọng tâm** | **TV2 — Minh Trí** | TV4, TV5 | `docs/requirements/use-case-checkout.md`: actor, trigger, pre/postcondition, luồng chính/thay thế/ngoại lệ, use-case diagram và liên kết FR |
+| **2.1 Activity diagram** | **TV2 — Minh Trí** | TV3–TV5 | `docs/diagrams/`: nguồn + ảnh xuất; có swimlane, decision, hết hàng, chưa login, thanh toán lỗi |
+| **2.2 Sequence diagram** | **TV5 — Thu Thảo** | TV3, TV4 | `docs/diagrams/sequence-checkout.puml` và `.svg` (hoặc tương đương): Customer → Next.js → NestJS → DB → Payment; JWT, transaction, idempotency, alt |
+| **2.3 Class diagram** | **TV4 — Phúc Toàn** | TV1, TV5 | `docs/diagrams/`: nguồn + ảnh xuất, User/Product/Order/OrderItem/Payment/Promotion/LoyaltyTransaction, multiplicity, enum |
+| **3.1 Kiến trúc + ADR** | **TV3 — Hiểu Băng** | TV1, TV4–TV6 | `docs/architecture/` và `docs/architecture/adr/`: phân lớp, NestJS modules, Next.js, DB/migration, logging, health, config, trade-off, ADR monorepo/payment |
+| **3.2 Deployment diagram** | **TV6 — Thái Anh** | TV1 Docker, TV3 secrets/CI | `docs/architecture/` và `docs/deployment.md`: môi trường thực tế, HTTPS, web/API/DB, storage, registry, secrets, health, local/CI/prod |
+| **4.1 Backlog/branch/DoD** | **TV3 — Hiểu Băng** | TV6 tổng hợp tiến độ | GitHub Issues/Project: Sprint 1/2, quy ước branch/PR/commit, Definition of Done, link trong README hoặc docs |
+| **4.2 Quản lý tài liệu** | **TV6 — Thái Anh** | Cả nhóm | Kiểm tra đủ tài liệu Task 1–3 trong `docs/`; cập nhật qua commit/PR có lý do |
+| **8.1 Traceability** | **TV6 — Thái Anh** | Mỗi TV cung cấp FR→code→test phần mình | `docs/traceability-matrix.md`: FR/NFR → UC/US → diagram/design → API/code → test |
+| **5.4 Review/Retro** | **TV6 — Thái Anh** | Cả nhóm | Sprint Review, Sprint Retrospective, demo/video, release notes và checklist bàn giao |
 
-**Giao diện:** frontend/src/views/customer/main/HomeView.tsx; views/customer/products/ProductDetailView.tsx; views/layouts/CustomerLayout.tsx; components/products/ProductCard.tsx; components/promotions/PromotionInput.tsx; public/images/.
+**Bảng tài liệu này bổ sung cho bảng tổng hợp, không thay đổi quyền sở hữu module code.** Tài liệu phải khớp với hành vi code hiện có và production được triển khai thực tế; không dựng sơ đồ deployment giả.
 
-**Backend:** backend/src/controllers/customer/products.controller.ts; services/products.service.ts; models/product.model.ts; services/promotions.service.ts; models/promotion.model.ts. Route sản phẩm trong routes/customer.routes.ts.
+## 4. Checklist chi tiết theo từng thành viên
 
-**Môi trường local:** frontend/Dockerfile.todo; backend/Dockerfile.todo; docker-compose.yml; hướng dẫn chạy local trong README. Đổi tên .todo thành Dockerfile khi thực sự triển khai.
+### TV1 — Nguyễn Khánh Duy: Sản phẩm, khuyến mãi, Docker
 
-- Hoàn thiện getProductDetail/findById; loadProduct, selectSize, toggleTopping, calculateDisplayPrice và addToCart qua CartStore TV2. Không viết giỏ riêng.
-- Hoàn thiện validatePromotion/findByCode/calculateDiscount: active, thời hạn, minimum_amount, PERCENT/FIXED; giảm không vượt subtotal. Chuẩn hóa code và làm tròn tiền thống nhất với TV4.
-- PromotionInput kiểm tra mã qua `POST /promotions/validate` trước khi hiển thị đã áp dụng; endpoint chỉ trả tổng xem trước từ subtotal gửi lên. TV4 vẫn tính lại giá, điều kiện mã và mức giảm từ DB trong `POST /orders`; không tin tổng từ preview và không gọi service NestJS trực tiếp từ browser.
-- Docker phải chạy được web + API + DB, volume DB bền vững, host/API URL đúng môi trường; phối hợp env với TV3 và bàn giao image/cổng/health cho TV6.
-- Test menu đủ/rỗng/lỗi, chi tiết 404, size/topping, các mã WELCOME10/HETHAN/CHUADEN/TATMA/MIN100K/GIAMTOIDA/GIAM100 và clone chạy Docker local.
+**Code:** `apps/web/src/views/customer/main/`, `apps/web/src/views/customer/products/`, `apps/web/src/components/products/`, `apps/web/src/components/promotions/`; `apps/api/src/controllers/customer/products.controller.ts`, `apps/api/src/services/products.service.ts`, `apps/api/src/services/promotions.service.ts`, `apps/api/src/models/`; `apps/web/Dockerfile`, `apps/api/Dockerfile`, `docker-compose.yml`, `README.md`.
 
-## Thành viên 2 Giỏ hàng và giao diện checkout
+- [ ] **Task 1.1:** Viết context-and-scope theo bảng tài liệu, có stakeholder và rủi ro.
+- [ ] **Task 4.3:** Chạy và test GET /products, GET /products/:id (404, loading/empty/error); menu mobile-first; size/topping, tính giá hiển thị, add-to-cart qua CartStore TV2.
+- [ ] **Task 5.1:** Kiểm tra promotion active, thời hạn, minimum, PERCENT/FIXED, giảm tối đa bằng subtotal; không tin tổng tiền từ browser. Phối hợp TV4 nếu cần endpoint preview.
+- [ ] **Task 5.2:** Test WELCOME10/HETHAN/CHUADEN/TATMA/MIN100K/GIAMTOIDA/GIAM100 (nếu có trong seed), trường hợp lỗi, DB sample; chạy Compose web+API+DB, health, persistent volume.
+- [ ] **Tích hợp:** Kiểm tra QR/SePay với TV5, xác thực webhook/đúng số tiền/chống callback trùng, không dùng tiền thật để demo khi chưa kiểm chứng.
+- [x] **README:** Viết lại hướng dẫn Assignment 2 trong commit tài liệu này; **chưa tính đã xác nhận chạy được**.
+- **Bàn giao:** link PR, log/test, lệnh Docker chạy được, cổng/env và mô tả image cho TV6.
 
-**File chính:** frontend/src/features/cart/cart.store.ts; views/customer/cart/CartView.tsx; views/customer/checkout/CheckoutView.tsx; app/cart/page.tsx; app/checkout/page.tsx. Phối hợp layout badge với TV1.
+### TV2 — Tô Minh Trí: Cart và Checkout
 
-- addItem/updateQuantity/removeItem/calculateSubtotal/restoreCart/clearAfterPayment: quantity nguyên 1–99, gộp key productId + size + tập topping đã sắp xếp; giữ giỏ khi tải lại/đăng nhập.
-- CheckoutView: loadCheckout/submitOrder, xem lại món và tổng tạm, loading/lỗi, chống gửi đồng thời trên UI; gửi id/size/toppingIds/quantity/promotionCode tới POST /orders của TV4.
-- Gắn PromotionInput của TV1, không viết lại công thức khuyến mãi. Hiển thị tổng chính thức/orderId backend trả rồi chuyển sang /payment của TV5.
-- Chưa login thì dùng luồng TV3, giữ giỏ và returnUrl. Giỏ chỉ xóa sau API xác nhận PAID qua trang kết quả TV6.
-- Không viết SQL, transaction tạo đơn hoặc giữ/hoàn tồn. Các việc đó thuộc TV4.
-- Test topping khác thứ tự vẫn gộp, số lượng biên, giỏ rỗng, reload, login quay lại, mã lỗi và hết hàng từ API.
+**Code:** `apps/web/src/features/cart/cart.store.ts`, `apps/web/src/views/customer/cart/`, `apps/web/src/views/customer/checkout/`, `apps/web/src/app/cart/`, `apps/web/src/app/checkout/`.
 
-## Thành viên 3 Tài khoản bảo mật và CI
+- [ ] **Task 1.3, 2.1:** Viết use-case checkout và activity có nhánh lỗi.
+- [ ] **Task 5.1:** Test gộp giỏ cùng product/size/topping dù thứ tự topping khác; quantity 1–99, reload, login return URL, xóa sau PAID.
+- [ ] **Task 5.1:** Checkout gửi đúng id/size/toppingIds/quantity/promotionCode; không tính giá chính thức ở client; loading/error/empty, chống double-submit.
+- [ ] **Task 5.2:** Test giỏ rỗng, mã lỗi, API 401/409, hết hàng, chuyển trang payment; cung cấp kịch bản cho TV6.
+- **Bàn giao:** video/ảnh UI mobile, test và PR, contract checkout đã thống nhất TV4/TV5.
 
-**Frontend:** frontend/src/views/auth/; features/auth/auth.service.ts; lib/api.ts; app/login và app/register.
+### TV3 — Võ Hoàng Hiểu Băng: Auth, CI, môi trường
 
-**Backend:** controllers/auth/auth.controller.ts; routes/auth.routes.ts; services/auth.service.ts; services/users.service.ts; models/user.model.ts; config/environment.ts; config/db.ts; types/contracts.ts (file chung).
+**Code:** `apps/web/src/views/auth/`, `apps/web/src/features/auth/`, `apps/api/src/controllers/auth/`, `apps/api/src/services/auth.service.ts`, `apps/api/src/config/`, `.github/workflows/ci.yml`.
 
-**CI:** .github/workflows/ci.yml và thiết lập required checks/branch protection với chủ repo. Không phụ trách CD/hosting của TV6.
+- [ ] **Task 3.1:** Kiến trúc, ADR, lý do/trade-off; đảm bảo khớp code.
+- [ ] **Task 4.1:** Tạo `.env.example` không secret; chuẩn hóa hướng dẫn branch/PR, commit/DoD; mở issue board/backlog với TV6.
+- [ ] **Task 4.4:** `npm ci → lint → unit test → build` (có thể thêm typecheck); PR tự chạy, branch protection chặn merge khi lỗi; lưu PR xanh và PR đỏ/log.
+- [ ] **Task 5.1–5.2:** Test đăng ký/đăng nhập, email trùng, bcrypt, JWT sai/hết hạn, route cần quyền, chống open redirect; kiểm tra env sau chuyển thư mục.
+- [ ] **Task 5.3:** Phối hợp TV6 quản lý CI secrets/permissions; không commit secret.
+- **Bàn giao:** `.env.example`, link CI và required checks, auth/security test, tài liệu ADR.
 
-- register/login/logout/verifyAccessToken/handleSessionExpired; email unique, bcrypt hash, JWT, 401 khi token thiếu/sai/hết hạn, không nhận role/userId tin cậy từ client.
-- Cung cấp guard và cách lấy user hiện tại cho TV4/TV5/TV6. Không trả/log hash, mật khẩu hoặc token.
-- Quay lại URL nội bộ sau login, không mất giỏ, không open redirect. Thống nhất cách lưu/gửi phiên với cả nhóm trước khi code.
-- Hoàn thiện CI npm ci → lint/typecheck → test → build; required checks thực sự cần thiết lập ở GitHub, không chỉ viết YAML.
-- Phối hợp TV1 về .env trong Docker và TV6 về secrets production; không commit .env. Không đổi transaction helper mà chưa báo TV4/TV5.
-- Test email trùng/khác hoa thường, sai mật khẩu, JWT hết hạn, truy cập API bảo vệ; minh chứng CI qua và CI phát hiện lỗi.
+### TV4 — Trần Lê Phúc Toàn: Orders, Inventory, DB
 
-## Thành viên 4 Backend đơn hàng và tồn kho
+**Code:** `apps/api/src/controllers/customer/orders.controller.ts`, `apps/api/src/services/orders.service.ts`, `apps/api/src/services/inventory.service.ts`, `apps/api/src/models/order.model.ts`, `apps/api/src/models/inventory.model.ts`, `apps/api/database/`, `apps/api/test/`.
 
-**File chính:** backend/src/controllers/customer/orders.controller.ts; services/orders.service.ts; services/inventory.service.ts; models/order.model.ts; models/inventory.model.ts; routes/customer.routes.ts (phần orders).
+- [ ] **Task 2.3:** Class diagram đủ lớp, thuộc tính, quan hệ, multiplicity, trạng thái.
+- [ ] **Task 5.1:** Kiểm chứng tạo đơn PENDING + items + giữ tồn cùng transaction; backend tính giá; hủy/hết hạn/hoàn tồn đúng một lần; retry sau FAILED.
+- [ ] **Task 5.1:** `previewOrder()` hiện còn `NotImplementedException`; chốt với TV1/TV2 xem có cần endpoint và hoàn thiện nếu sử dụng.
+- [ ] **Task 5.2:** Test tranh tồn cuối, rollback, giá client bị sửa, 409, hết hàng, xử lý concurrent requests.
+- [ ] **Task 5.2:** Chạy migrate/seed trên DB mới, test dữ liệu và khả năng tái tạo; migration mới thay vì sửa migration đã áp dụng.
+- **Bàn giao:** integration test orders/inventory, log migrate/seed, contract trạng thái cho TV5/TV6.
 
-- previewOrder/createOrder nhận dữ liệu từ UI checkout TV2; backend tính lại giá và gọi PromotionsService TV1; trả orderId/status/subtotal/discount/total chính thức.
-- Tạo đơn PENDING + chi tiết + giữ tồn trong cùng PoolClient/transaction. 002 chỉ cho lập chi tiết trong transaction tạo đơn; không tạo order xong commit rồi mới thêm item.
-- reserveStock/decreaseStock phải gộp lượng theo productId, kiểm tra stock/version, số dòng cập nhật; rollback toàn bộ khi lỗi/tranh tồn.
-- cancelOrder/expirePendingOrders/releaseStock/restoreStockOnce hoàn tồn đúng một lần; không hủy khi Payment PROCESSING hoặc thành công.
-- preparePaymentRetry giữ tồn mới trước khi đưa PAYMENT_FAILED về PENDING; phối hợp TV5, không tự gọi gateway hoặc tự cộng điểm.
-- Không làm CheckoutView (thuộc TV2). previewOrder mới có service khung, chưa có endpoint preview riêng; thống nhất contract với TV1/TV2 nếu thêm.
-- Test giá client bị sửa, hai người tranh tồn cuối, rollback, hủy/hết hạn, dấu hoàn tồn và retry hết hàng.
+### TV5 — Nguyễn Thu Thảo: Mock Payment, Loyalty, SePay phối hợp
 
-## Thành viên 5 Thanh toán và điểm thưởng
+**Code:** `apps/web/src/views/customer/payment/`, `apps/api/src/controllers/customer/payments.controller.ts`, `apps/api/src/services/payments.service.ts`, `apps/api/src/services/loyalty.service.ts`, `apps/api/src/gateways/mock-payment.gateway.ts`, `apps/api/src/models/payment.model.ts`.
 
-**Frontend:** frontend/src/views/customer/payment/PaymentView.tsx và app/payment/page.tsx.
+- [ ] **Task 2.2:** Sequence diagram có JWT, transaction, idempotency, nhánh thành công/thất bại và kết quả cuối.
+- [ ] **Task 5.1:** Đảm bảo luồng mock Ví/Thẻ có thể demo độc lập với SePay, UI/API/validate đúng contract.
+- [ ] **Task 5.1–5.2:** Test idempotency (same key/same payload, same key/different payload 409), concurrent requests, timeout/reconcile, retry.
+- [ ] **Task 5.2:** PAID + payment SUCCEEDED + loyalty EARN trong transaction, không cộng điểm hai lần; test failure giữ tồn/giỏ phù hợp.
+- [ ] **Tích hợp:** Phối hợp TV1 xác nhận SePay webhook, đúng orderId/amount, callback lặp, không lộ key; thống nhất trạng thái cho TV6.
+- **Bàn giao:** payment integration tests, log/ảnh mock thành công-thất bại-timeout, contract API.
 
-**Backend:** controllers/customer/payments.controller.ts; services/payments.service.ts; services/loyalty.service.ts; models/payment.model.ts; models/loyalty.model.ts; gateways/mock-payment.gateway.ts; routes/customer.routes.ts (payments).
+### TV6 — Lưu Trọng Thái Anh: Tracking, E2E, CD và bàn giao
 
-- selectMethod/submitPayment/retryPayment và createPayment/getPaymentStatus/reconcilePayment/finalizePayment; kiểm tra JWT TV3, chủ đơn và trạng thái.
-- Cùng key/payload trả cùng kết quả; key khác payload trả 409; chỉ đổi key khi là lần thử mới sau thất bại xác định. Một đơn không có hai attempt PROCESSING/SUCCEEDED.
-- Không giữ transaction PostgreSQL mở khi chờ gateway. Timeout giữ PROCESSING/PENDING và tồn; đối soát cùng key, không tự chuyển FAILED.
-- Chốt Payment SUCCEEDED + Order PAID + INSERT EARN trong một transaction ngắn. Trigger tự cộng users.loyalty_points; tuyệt đối không cộng tay lần hai.
-- Thất bại xác định/thử lại gọi hàm tồn của TV4; giao orderId/paymentId và kết quả có thẩm quyền cho trang TV6. Không tự xóa giỏ khi chưa PAID.
-- Test key trùng, payload đổi, 2 request đồng thời, thất bại rồi retry, timeout sau gateway đã thành công và EARN chỉ một lần.
+**Code:** `apps/web/src/views/customer/payment-status/`, `apps/web/src/views/customer/orders/`, `apps/api/src/services/customer-orders.service.ts`, `apps/api/src/services/order-state.service.ts`, `tests/e2e/`, `.github/workflows/`, `scripts/smoke.mjs`.
 
-## Thành viên 6 Theo dõi đơn và triển khai
+- [ ] **Task 1.2:** Tổng hợp SRS FR/NFR, MoSCoW, acceptance criteria, use-case tổng quát từ 6 module.
+- [ ] **Task 3.2:** Deployment diagram đúng hạ tầng đã chọn, HTTPS, registry, DB private, secrets, health/log.
+- [ ] **Task 4.2 & 8.1:** Gom docs Task 1–3; tạo `docs/traceability-matrix.md` với FR/NFR→UC/US→diagram→code→test.
+- [ ] **Task 5.1:** Test lịch sử/chi tiết chỉ cho chủ đơn; polling dừng khi kết quả cuối/unmount; không tin trạng thái trên URL; chỉ clear cart khi PAID.
+- [ ] **Task 5.2:** Thay `tests/e2e/checkout.spec.todo.ts` bằng ít nhất một E2E chạy được menu→detail→cart→login→checkout→mock payment→PAID→history; thêm failure/timeout khi có thời gian.
+- [ ] **Task 5.3:** CD sau CI: tag image theo SHA/version, registry nếu cần, deploy qua CI secrets, migration an toàn, health/smoke, dừng và rollback khi lỗi.
+- [ ] **Task 5.4:** URL HTTPS frontend, API/health, DB không public, release/tag + notes, README deploy/rollback (phối hợp TV1), video/demo, Sprint Review/Retro.
+- **Bàn giao:** link E2E xanh, CD run, URL production thật, release, demo và checklist nghiệm thu.
 
-**Frontend:** frontend/src/views/customer/payment-status/PaymentStatusView.tsx; views/customer/orders/OrderHistoryView.tsx; OrderDetailView.tsx; các route app tương ứng.
+## 5. Bàn giao liên module và thứ tự tích hợp
 
-**Backend:** controllers/customer/customer-orders.controller.ts; services/customer-orders.service.ts; models/customer-order.model.ts; services/order-state.service.ts; controllers/system/health.controller.ts; routes/system.routes.ts.
+| Đầu vào | Người bàn giao | Người nhận | Điều kiện nhận |
+| --- | --- | --- | --- |
+| Product/size/topping, PromotionInput, Docker local | TV1 | TV2, TV4, TV6 | API/UI/test + Compose/health chạy |
+| CartStore, request checkout | TV2 | TV4, TV5, TV6 | Không tự tin giá; giữ giỏ khi lỗi |
+| JWT guard/user context, CI, env | TV3 | TV4, TV5, TV6 | Test bảo mật + CI PR |
+| Orders/inventory/transaction/retry | TV4 | TV2, TV5, TV6 | Trạng thái và rollback nhất quán |
+| Payment result/loyalty/idempotency | TV5 | TV6 | Mock chạy, trạng thái có thẩm quyền |
+| E2E/CD/production, traceability | TV6 | Cả nhóm | URL/test/release và minh chứng |
 
-**Delivery:** tests/e2e/checkout.spec.todo.ts; workflow CD cần bổ sung sau khi chốt hosting; tài liệu deploy/smoke/rollback và README bàn giao. CI thuộc TV3, Docker local thuộc TV1.
+## 6. Definition of Done và bằng chứng bắt buộc
 
-- getMyOrders/getOrderDetail lấy userId từ JWT TV3, chặn đọc đơn người khác; UI loading/rỗng/lỗi và mã đơn/trạng thái.
-- checkPaymentStatus/pollPaymentStatus/stopPolling gọi API TV5; không tin status trên URL. Dừng polling khi có kết quả/unmount; chỉ gọi CartStore.clearAfterPayment TV2 khi backend xác nhận PAID.
-- Nút hủy gọi API TV4, xử lý 409 và tải lại trạng thái; không tự hoàn tồn. Retry chuyển sang luồng TV5.
-- assertTransition/transitionOrder dùng quy tắc DB 002 và OrderModel TV4; phối hợp file chung, không tạo trang nhân viên.
-- Dùng image/config TV1 và CI TV3 để ghép CD/HTTPS/secret/health/smoke/rollback, cung cấp URL production.
-- Chủ trì E2E toàn luồng; mỗi TV tự viết test và sửa lỗi phần mình. Test quyền sở hữu, chuyển trạng thái sai, polling và smoke sau deploy.
+Một đầu việc chỉ được đánh dấu **Hoàn thành** khi:
+1. Có code/tài liệu đúng vị trí, liên kết issue và PR/commit, được review.
+2. Có acceptance criteria; unit/integration/component/E2E phù hợp chạy thành công.
+3. `npm ci`, lint, test, build/CI không lỗi; không merge nếu required check fail.
+4. Cập nhật docs và ma trận truy vết tương ứng; sơ đồ có file nguồn và ảnh/PDF xuất.
+5. Với Docker/CD/production: có log, health, URL thật, secrets an toàn, cách rollback.
+6. Không tự nhận phần đang TODO hoặc chưa chạy thực tế là đã xong.
 
-## Các giao điểm bắt buộc
+**Đặc biệt:** Nếu chưa có tài liệu bắt buộc Task trước thì Task sau không đạt phần truy vết; nếu URL production không hoạt động khi chấm thì phần triển khai Task 5 chưa hoàn thành.
 
-| Bàn giao                                    | Người cung cấp | Người sử dụng |
-| ------------------------------------------- | -------------- | ------------- |
-| Sản phẩm/tùy chọn và PromotionInput         | TV1            | TV2           |
-| PromotionsService và cách tính giảm         | TV1            | TV4           |
-| CartStore và dữ liệu checkout               | TV2            | TV1, TV5, TV6 |
-| UI checkout + request tạo đơn               | TV2            | API TV4       |
-| JWT/guard/user hiện tại, CI                 | TV3            | TV4, TV5, TV6 |
-| Đơn đã chốt, giữ/hoàn tồn, retry            | TV4            | TV2, TV5, TV6 |
-| Trạng thái thanh toán và kết quả chính thức | TV5            | TV6           |
-| Docker local/image/cổng/env                 | TV1            | TV3, TV6      |
-| Workflow CI và required checks              | TV3            | TV6 ghép CD   |
+## 7. Checklist tiến độ chung (mặc định chưa xác nhận)
 
-## Quy định hoàn thành
+- [ ] Task 1: Context/scope + SRS + use-case.
+- [ ] Task 2: Activity + sequence + class (nguồn + export).
+- [ ] Task 3: Kiến trúc/ADR + deployment diagram thực tế.
+- [ ] Task 4: `.env.example`, issue board, PR/DoD, menu MVP, CI và required checks.
+- [ ] Task 5: Full flow, mock Ví/Thẻ, integration/E2E, Docker Compose, CD, production HTTPS.
+- [ ] Traceability matrix và minh chứng.
+- [ ] Release/tag, release notes, README deploy/rollback, demo, Sprint Review/Retrospective.
 
-Mỗi người tự viết test, xử lý lỗi và ghi hướng dẫn phần mình; mở PR từ nhánh tv1-products-promotions, tv2-cart-checkout, tv3-auth-ci, tv4-orders-inventory, tv5-payments-loyalty, tv6-tracking-delivery. Đây là tên gợi ý, chưa tạo sẵn nhánh.
-
-Không sửa đè 001/002 đã được áp dụng: dùng migration mới từ 004_...sql và thống nhất nhóm. Schema dùng chung không thuộc độc quyền TV1 hoặc một người. Chỉ bỏ 501 khi Auth/quyền sở hữu/validate và nghiệp vụ tương ứng hoàn chỉnh. Không nhận phần đã có là đã hoàn thành toàn module.
+**Tài liệu tham chiếu:** `Assignment2-BrewLite.pdf`; code `main` và README của repository. Khi công việc hoàn thành, cập nhật checklist bằng PR có link minh chứng, không tự suy diễn trạng thái.

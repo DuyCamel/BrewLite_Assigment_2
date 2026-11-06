@@ -10,6 +10,6 @@
 - Mỗi người tự viết test module, mở PR; thay đổi contracts/schema dùng chung cần thống nhất nhóm.
 - Không commit .env, node_modules, dist, .next hoặc thông tin đăng nhập thật.
 
-Contract Product hiện có ở backend/src/types/product.types.ts và frontend/src/types/product.ts. TV1 cập nhật đồng thời cả hai khi thay đổi response; nếu mở rộng nhiều, nhóm thống nhất package contract dùng chung.
+Contract Product hiện có ở apps/api/src/types/product.types.ts và apps/web/src/types/product.ts. TV1 cập nhật đồng thời cả hai khi thay đổi response; nếu mở rộng nhiều, nhóm thống nhất package contract dùng chung.
 
 - routes/ chỉ định nghĩa URL; controllers/ dùng route constants và gọi services/; SQL nghiệp vụ chỉ trong models/. config/db.ts chỉ cung cấp kết nối và ping health.

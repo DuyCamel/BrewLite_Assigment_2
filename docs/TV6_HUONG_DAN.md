@@ -4,11 +4,11 @@
 
 | Việc                                                             | Trạng thái                                                                   | Nằm ở đâu                                                        |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| API đọc đơn của chính user (`GET /orders/me`, `GET /orders/:id`) | Xong, có guard JWT của TV3                                                   | `backend/src/controllers/customer/customer-orders.controller.ts` |
-| Quy tắc chuyển trạng thái đơn (khớp trigger `002`)               | Xong, có test                                                                | `backend/src/services/order-state.service.ts`                    |
-| Health check có kiểm tra DB (503 khi DB lỗi)                     | Xong                                                                         | `backend/src/controllers/system/health.controller.ts`            |
-| Trang Đơn của tôi, Chi tiết đơn, Kết quả thanh toán              | Xong                                                                         | `frontend/src/views/customer/orders/`, `.../payment-status/`     |
-| Frontend gửi token đăng nhập khi gọi `/orders/*`                 | Xong (đọc phiên của TV3)                                                     | `frontend/src/lib/client-api.ts`                                 |
+| API đọc đơn của chính user (`GET /orders/me`, `GET /orders/:id`) | Xong, có guard JWT của TV3                                                   | `apps/api/src/controllers/customer/customer-orders.controller.ts` |
+| Quy tắc chuyển trạng thái đơn (khớp trigger `002`)               | Xong, có test                                                                | `apps/api/src/services/order-state.service.ts`                    |
+| Health check có kiểm tra DB (503 khi DB lỗi)                     | Xong                                                                         | `apps/api/src/controllers/system/health.controller.ts`            |
+| Trang Đơn của tôi, Chi tiết đơn, Kết quả thanh toán              | Xong                                                                         | `apps/web/src/views/customer/orders/`, `.../payment-status/`     |
+| Frontend gửi token đăng nhập khi gọi `/orders/*`                 | Xong (đọc phiên của TV3)                                                     | `apps/web/src/lib/client-api.ts`                                 |
 | Smoke test sau deploy                                            | Xong                                                                         | `scripts/smoke.mjs`, chạy bằng `node scripts/smoke.mjs`          |
 | Nút hủy đơn gọi API TV4                                          | Đã nối `POST /orders/:id/cancel`; cần E2E xác minh trên môi trường chạy thật | `OrderDetailView.tsx`                                            |
 | E2E toàn luồng (menu → giỏ → đăng nhập → thanh toán → PAID)      | Chưa làm được: thanh toán TV5 vẫn là khung 501                               | `tests/e2e/checkout.spec.todo.ts`                                |
@@ -32,7 +32,7 @@ Muốn kiểm tra thêm đăng nhập và đọc đơn, đặt thêm `SMOKE_EMAI
 
 Các bước kiểm tra: `/health` phải là `database: "up"` (sample mode bị coi là lỗi), `/products` có món, `/orders/me` không token hoặc token rác phải 401, trang web trả 200, và nếu có tài khoản thử thì đăng nhập, đọc `/orders/me` được 200, đơn không tồn tại trả 404. Script thoát mã 1 khi có bước lỗi nên CD dùng được để quyết định rollback.
 
-Chạy thử local sau `npm run dev` (không đặt biến thì mặc định `localhost:4000` và `localhost:3000`): `node scripts/smoke.mjs`. Ở máy local mật khẩu mẫu của seed nằm trong `backend/database/README.md`.
+Chạy thử local sau `npm run dev` (không đặt biến thì mặc định `localhost:4000` và `localhost:3000`): `node scripts/smoke.mjs`. Ở máy local mật khẩu mẫu của seed nằm trong `apps/api/database/README.md`.
 
 ## 3. Checklist deploy và rollback (chưa phụ thuộc nhà cung cấp hosting)
 
@@ -58,7 +58,7 @@ Khi nhóm chốt hosting, workflow CD nên có thứ tự: build image từ Dock
 
 ## 5. Kiểm tra quyền sở hữu và chuyển trạng thái
 
-Đã có test trong `backend/test/customer-orders.test.ts` và `customer-orders.sql.test.ts` (quy tắc trạng thái, đọc đơn theo user, SQL thật trên PGlite). Chạy bằng `npm test` ở thư mục gốc.
+Đã có test trong `apps/api/test/customer-orders.test.ts` và `customer-orders.sql.test.ts` (quy tắc trạng thái, đọc đơn theo user, SQL thật trên PGlite). Chạy bằng `npm test` ở thư mục gốc.
 
 ## 6. Trang kết quả thanh toán với luồng SePay
 

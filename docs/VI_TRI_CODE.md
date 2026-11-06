@@ -16,12 +16,12 @@ Phân công hiện hành: TV1 sản phẩm/khuyến mãi/Docker local; TV2 giỏ
 | Kết quả thanh toán   | 6   | customer/payment-status                                             | Gọi API Payments TV5                                                                                        | TV5 sở hữu PaymentModel                            |
 | Lịch sử/chi tiết đơn | 6   | customer/orders                                                     | controllers/customer/customer-orders.controller.ts, services/customer-orders.service.ts                     | models/customer-order.model.ts                     |
 | Quy tắc trạng thái   | 6   | Không có trang nhân viên                                            | services/order-state.service.ts                                                                             | Phối hợp OrderModel TV4                            |
-| Docker local         | 1   | frontend/Dockerfile.todo                                            | backend/Dockerfile.todo, docker-compose.yml                                                                 | Dùng DB/seed có sẵn                                |
+| Docker local         | 1   | apps/web/Dockerfile                                            | apps/api/Dockerfile, docker-compose.yml                                                                 | Dùng DB/seed có sẵn                                |
 | CI/required checks   | 3   | Không có trang                                                      | .github/workflows/ci.yml và thiết lập GitHub                                                                | Không viết SQL                                     |
 | CD/production/E2E    | 6   | Smoke URL web                                                       | Dùng image TV1 và CI TV3; tests/e2e                                                                         | Không sửa schema tùy tiện                          |
 
-Đường dẫn customer/components ở cột giao diện tính từ frontend/src/views hoặc frontend/src theo tên thư mục. services/models/controllers tính từ backend/src. Chi tiết đầy đủ nằm trong PHAN_CONG.md.
+Đường dẫn customer/components ở cột giao diện tính từ apps/web/src/views hoặc apps/web/src theo tên thư mục. services/models/controllers tính từ apps/api/src. Chi tiết đầy đủ nằm trong PHAN_CONG.md.
 
-Route API tập trung trong backend/src/routes/customer.routes.ts, auth.routes.ts, system.routes.ts và được controller dùng trực tiếp. Route frontend nằm trong frontend/src/app. Khuyến mãi hiện là service nội bộ khi tạo đơn; chưa có API preview riêng.
+Route API tập trung trong apps/api/src/routes/customer.routes.ts, auth.routes.ts, system.routes.ts và được controller dùng trực tiếp. Route frontend nằm trong apps/web/src/app. Khuyến mãi hiện là service nội bộ khi tạo đơn; chưa có API preview riêng.
 
-SQL tạo/sửa cấu trúc ở backend/database, truy vấn runtime ở models, nghiệp vụ ở services. Với schema đã áp dụng, tạo migration mới từ 004, không sửa 001/002.
+SQL tạo/sửa cấu trúc ở apps/api/database, truy vấn runtime ở models, nghiệp vụ ở services. Với schema đã áp dụng, tạo migration mới từ 004, không sửa 001/002.

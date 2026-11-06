@@ -27,7 +27,7 @@ COPY apps/api/package.json apps/api/package.json
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/apps/api/dist apps/api/dist
-COPY --from=builder /app/apps/api/database/seed apps/api/database/seed
+COPY --from=builder /app/apps/api/database apps/api/database
 
 EXPOSE 4000
 

@@ -6,17 +6,17 @@ Nhánh PR gợi ý: `tv3-auth-ci`. Đường dẫn tính từ gốc repo.
 
 | Yêu cầu                                                                                   | Trạng thái                                                          | Ở đâu / ghi chú                                                                                    |
 | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| register, login, logout, verifyAccessToken, handleSessionExpired                          | Xong                                                                | `backend/src/services/auth.service.ts`, `frontend/src/features/auth/auth.service.ts`               |
+| register, login, logout, verifyAccessToken, handleSessionExpired                          | Xong                                                                | `apps/api/src/services/auth.service.ts`, `apps/web/src/features/auth/auth.service.ts`               |
 | Email unique (kể cả khác hoa thường), bcrypt, JWT                                         | Xong                                                                | email chuẩn hóa chữ thường; unique index `lower(email)` của DB là nguồn sự thật, trùng trả 409     |
 | 401 khi token thiếu/sai/hết hạn, kiểm tra ở API chứ không chỉ UI                          | Xong                                                                | `JwtAuthGuard`; mã `TOKEN_MISSING` / `TOKEN_INVALID` / `TOKEN_EXPIRED`                             |
 | Không nhận role/userId tin cậy từ client                                                  | Xong                                                                | register chỉ đọc `email`, `password`; `userId` chỉ lấy từ JWT                                      |
-| Guard và cách lấy user hiện tại cho TV4/TV5/TV6                                           | Xong                                                                | `backend/src/guards/` (mục 4)                                                                      |
+| Guard và cách lấy user hiện tại cho TV4/TV5/TV6                                           | Xong                                                                | `apps/api/src/guards/` (mục 4)                                                                      |
 | Không trả/log hash, mật khẩu, token                                                       | Xong                                                                | `passwordHash` chỉ có ở `UserRecord` nội bộ; log chỉ có thông điệp lỗi hạ tầng                     |
-| Quay lại URL nội bộ, không mất giỏ, không open redirect                                   | Xong                                                                | `frontend/src/features/auth/return-url.ts`; không đụng key localStorage của giỏ                    |
+| Quay lại URL nội bộ, không mất giỏ, không open redirect                                   | Xong                                                                | `apps/web/src/features/auth/return-url.ts`; không đụng key localStorage của giỏ                    |
 | npm ci, typecheck, lint, test, build trong CI                                             | Viết xong, **chưa chạy trên GitHub**                                | `.github/workflows/ci.yml`, `eslint.config.mjs`, script `lint` ở `package.json` gốc                |
-| Test email trùng/khác hoa thường, sai mật khẩu, JWT hết hạn, API bảo vệ                   | **Xong và đã chạy thật:** 84/84 test qua (bản merge, thư viện thật) | `backend/test/auth.test.ts`, `auth.db.test.ts`, `orders-auth.test.ts`, `menu.test.ts`              |
+| Test email trùng/khác hoa thường, sai mật khẩu, JWT hết hạn, API bảo vệ                   | **Xong và đã chạy thật:** 84/84 test qua (bản merge, thư viện thật) | `apps/api/test/auth.test.ts`, `auth.db.test.ts`, `orders-auth.test.ts`, `menu.test.ts`              |
 | Gắn `JwtAuthGuard` cho API đơn của khách (TODO TV3 trong `customer-orders.controller.ts`) | **Xong**                                                            | `GET /orders/me` và `GET /orders/:id` giờ cần JWT; `orders-auth.test.ts` kiểm tra đi qua HTTP thật |
-| Nối `getAccessToken()` trong `frontend/src/lib/client-api.ts` (TODO TV3)                  | **Xong**                                                            | trang "Đơn của tôi" gửi token; 401 từ server thì xóa phiên                                         |
+| Nối `getAccessToken()` trong `apps/web/src/lib/client-api.ts` (TODO TV3)                  | **Xong**                                                            | trang "Đơn của tôi" gửi token; 401 từ server thì xóa phiên                                         |
 | **Thống nhất cách lưu/gửi phiên với cả nhóm trước khi code**                              | **Chưa làm**                                                        | Tôi đã chọn JWT trong `localStorage`, gửi bằng `Authorization: Bearer`. Cần nhóm đồng ý (mục 8)    |
 | **Required checks / branch protection trên GitHub**                                       | **Chưa làm, cần làm cùng chủ repo**                                 | Mục 7                                                                                              |
 | **Minh chứng CI qua và CI phát hiện lỗi**                                                 | **Chưa làm**                                                        | Mục 7                                                                                              |
@@ -25,16 +25,16 @@ Nhánh PR gợi ý: `tv3-auth-ci`. Đường dẫn tính từ gốc repo.
 
 ## 2. File dùng chung đã sửa (báo nhóm trước khi merge)
 
-Đợt merge đầu: `backend/src/app.module.ts` (thêm provider), `backend/src/main.ts` (CORS nhiều origin, dừng sớm khi thiếu hoặc sai `JWT_SECRET`), `backend/src/config/environment.ts` (cấu hình JWT), `frontend/src/views/layouts/CustomerLayout.tsx` (nút "Đăng nhập" thành `<AccountNav />`), `.github/workflows/ci.yml`, `package.json` gốc, `.env_vidu`, `README.md`, `backend/database/README.md`, `docs/VI_TRI_CODE.md`.
+Đợt merge đầu: `apps/api/src/app.module.ts` (thêm provider), `apps/api/src/main.ts` (CORS nhiều origin, dừng sớm khi thiếu hoặc sai `JWT_SECRET`), `apps/api/src/config/environment.ts` (cấu hình JWT), `apps/web/src/views/layouts/CustomerLayout.tsx` (nút "Đăng nhập" thành `<AccountNav />`), `.github/workflows/ci.yml`, `package.json` gốc, `.env_vidu`, `README.md`, `apps/api/database/README.md`, `docs/VI_TRI_CODE.md`.
 
 Đợt sửa sau merge (file của người khác, chỉ sửa đúng phần TODO giao cho TV3):
 
-- `backend/src/controllers/customer/customer-orders.controller.ts` (TV6): thêm `@UseGuards(JwtAuthGuard)` cho cả class. Trước đó không ai gắn guard nên `/orders/me` luôn trả 401 dù đã đăng nhập.
-- `frontend/src/lib/client-api.ts` (TV6): `getAccessToken()` đọc token từ phiên đăng nhập (trước đó luôn `return null`), và xóa phiên khi server trả 401.
+- `apps/api/src/controllers/customer/customer-orders.controller.ts` (TV6): thêm `@UseGuards(JwtAuthGuard)` cho cả class. Trước đó không ai gắn guard nên `/orders/me` luôn trả 401 dù đã đăng nhập.
+- `apps/web/src/lib/client-api.ts` (TV6): `getAccessToken()` đọc token từ phiên đăng nhập (trước đó luôn `return null`), và xóa phiên khi server trả 401.
 - `.env_vidu`: sau merge có hai dòng `JWT_SECRET` (một dòng mẫu cũ `replace_with_a_random_secret` do commit khác thêm vào, 28 ký tự và chứa `replace_` nên backend sẽ từ chối). Đã gộp thành một khối.
-- `backend/test/menu.test.ts`: bỏ `/products/abc` khỏi danh sách "khung 501" vì TV1 đã làm xong chi tiết món (trả 404), test đó đang đỏ trên `main`.
+- `apps/api/test/menu.test.ts`: bỏ `/products/abc` khỏi danh sách "khung 501" vì TV1 đã làm xong chi tiết món (trả 404), test đó đang đỏ trên `main`.
 
-Đợt thêm tính năng quên mật khẩu (mục 11): thêm migration `backend/database/008_password_reset.sql` (schema dùng chung, cần nhóm đồng ý), thêm 2 provider vào `backend/src/app.module.ts`, thêm cảnh báo cấu hình vào `backend/src/main.ts`, thêm biến môi trường vào `.env_vidu`, và thêm link "Quên mật khẩu?" vào `LoginView.tsx`.
+Đợt thêm tính năng quên mật khẩu (mục 11): thêm migration `apps/api/database/008_password_reset.sql` (schema dùng chung, cần nhóm đồng ý), thêm 2 provider vào `apps/api/src/app.module.ts`, thêm cảnh báo cấu hình vào `apps/api/src/main.ts`, thêm biến môi trường vào `.env_vidu`, và thêm link "Quên mật khẩu?" vào `LoginView.tsx`.
 
 ## 3. Đã làm gì
 
@@ -62,7 +62,7 @@ createOrder(@CurrentUser() user: AuthenticatedUser, @Body() body: unknown) {
 }
 ```
 
-**Client API riêng của từng TV (ví dụ `frontend/src/lib/client-api.ts` của TV6)** chỉ cần lấy token từ phiên đăng nhập, không tự lưu hay đọc token ở chỗ khác. Hàm `getAccessToken()` trong file đó phải là:
+**Client API riêng của từng TV (ví dụ `apps/web/src/lib/client-api.ts` của TV6)** chỉ cần lấy token từ phiên đăng nhập, không tự lưu hay đọc token ở chỗ khác. Hàm `getAccessToken()` trong file đó phải là:
 
 ```ts
 import { clearSession, loadSession } from "@/features/auth/session";
@@ -99,7 +99,7 @@ Nhắn TV1: service api trong Compose cần `JWT_SECRET`, `DB_*`, `FRONTEND_ORIG
 
 ## 6. Chạy và kiểm tra (tại gốc repo)
 
-1. **`npm install` ở gốc repo (không chạy trong `backend/`), rồi commit `package-lock.json`.** Lock hiện chưa có `jsonwebtoken`, `@types/jsonwebtoken` và ESLint, nên `npm ci` (CI) sẽ báo lock lệch cho đến khi bước này xong. Kiểm lại bằng `npm ci`.
+1. **`npm install` ở gốc repo (không chạy trong `apps/api/`), rồi commit `package-lock.json`.** Lock hiện chưa có `jsonwebtoken`, `@types/jsonwebtoken` và ESLint, nên `npm ci` (CI) sẽ báo lock lệch cho đến khi bước này xong. Kiểm lại bằng `npm ci`.
 2. `npm run format` (prettier) để căn lại định dạng file mới theo cấu hình của nhóm.
 3. `npm run typecheck && npm run lint && npm test && npm run build`.
 4. Thử tay: `npm run db:migrate && npm run db:seed`, chạy `npm run dev`, vào `/login` đăng nhập `khach01@brewlite.test` / `BrewLite123!`; hoặc gọi `POST /auth/login` rồi `GET /auth/me` với header `Authorization: Bearer <accessToken>`.
@@ -152,7 +152,7 @@ Workflow **Check scaffold**, job **`check`**: báo tên này cho TV6. `ci.yml` c
 | `POST /auth/forgot-password` | `{ email }`           | 200 `{ message }`, **luôn cùng một thông báo** dù email có hay không | 400 `VALIDATION_FAILED` (email sai định dạng), 503                                                     |
 | `POST /auth/reset-password`  | `{ token, password }` | 200 `{ message }`                                                    | 400 `VALIDATION_FAILED` (mật khẩu yếu), 400 `RESET_TOKEN_INVALID` (hết hạn/đã dùng/không có thật), 503 |
 
-**Cơ sở dữ liệu:** bảng mới `password_reset_tokens` trong `backend/database/008_password_reset.sql`. Chạy `npm run db:migrate` (runner tự nhận file mới). Bảng này thuộc schema dùng chung nên cần báo nhóm trước khi merge.
+**Cơ sở dữ liệu:** bảng mới `password_reset_tokens` trong `apps/api/database/008_password_reset.sql`. Chạy `npm run db:migrate` (runner tự nhận file mới). Bảng này thuộc schema dùng chung nên cần báo nhóm trước khi merge.
 
 **Thiết kế bảo mật:**
 

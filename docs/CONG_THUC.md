@@ -1,7 +1,7 @@
 # Công thức định lượng đồ uống
 
 Đây là quy ước tồn kho nguyên liệu dùng chung của nhóm. Dữ liệu chạy thật nằm trong
-[006_recipe_catalog.sql](../backend/database/006_recipe_catalog.sql); không sửa trực tiếp
+[006_recipe_data.sql](../apps/api/database/006_recipe_data.sql); không sửa trực tiếp
 `001_schema.sql` hoặc `005_ingredient_inventory.sql`.
 
 ## Quy tắc size
@@ -35,6 +35,6 @@ với đơn hàng. Hủy đơn hoặc thanh toán thất bại sẽ hoàn đúng
 ## Danh sách sản phẩm
 
 Định lượng chi tiết của 36 sản phẩm theo bảng nhóm cung cấp được khai báo trong migration
-`006_recipe_catalog.sql`, với cùng mã sản phẩm trong `backend/database/seed/products.json`.
+`006_recipe_data.sql`, với cùng mã sản phẩm trong `apps/api/database/seed/products.json`.
 Không dùng `products.stock` làm tồn chính sau khi migration 006 đã chạy; nguồn tồn chính
 là `ingredients.stock`, còn `products.stock` chỉ phục vụ tương thích dữ liệu cũ.

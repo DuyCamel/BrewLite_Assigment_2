@@ -1,5 +1,5 @@
 // Hàm dùng chung cho test của TV4 (không phải file test vì không có đuôi .test.ts).
-// Dựng PostgreSQL thật bằng PGlite, nạp 001/002/003, thêm một sản phẩm riêng của TV4.
+// Dựng PostgreSQL thật bằng PGlite, nạp 001 (schema đủ) và 002 (seed), thêm một sản phẩm riêng của TV4.
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -19,8 +19,9 @@ export async function createTestDb(): Promise<PGlite> {
   const sql = (name: string) =>
     readFileSync(resolve(__dirname, "../database", name), "utf8");
   await db.exec(sql("001_schema.sql"));
-  await db.exec(sql("002_integrity.sql"));
-  await db.exec(sql("003_seed.sql"));
+  await db.exec(sql("007_order_payment_codes.sql"));
+  await db.exec(sql("009_qr_reissue.sql"));
+  await db.exec(sql("002_seed.sql"));
   // Sản phẩm riêng để test không phụ thuộc tồn kho của dữ liệu mẫu TV1.
   await db.query(
     `INSERT INTO products (id, name, category, price, stock, sizes, toppings)
@@ -35,6 +36,12 @@ export async function createTestDb(): Promise<PGlite> {
       JSON.stringify([{ id: "tc", name: "Trân châu", price: TOPPING_TC }]),
     ],
   );
+  // 001_schema.sql chỉ tạo công thức tương thích cho sản phẩm có sẵn lúc chạy; sản phẩm TV4 thêm sau nên
+  // chạy lại đúng khối backfill đó (idempotent) để món có công thức nguyên liệu.
+  const schema = sql("001_schema.sql");
+  const start = schema.search(/DO \$\$\r?\nDECLARE p RECORD; s TEXT;/);
+  const end = schema.indexOf("END $$;", start) + "END $$;".length;
+  await db.exec(schema.slice(start, end));
   return db;
 }
 
@@ -70,11 +77,60 @@ export function makeTx(database: PGlite): Tx {
   };
 }
 
+// Bản giả của DatabaseService: withTransaction cho OrdersService, query cho PromotionModel của TV1.
+// (Với pg thật, query chạy trên kết nối riêng; PGlite chỉ có một kết nối nên dùng chung.)
 export function makeFakeDatabase(database: PGlite): DatabaseService {
-  return { withTransaction: makeTx(database) } as unknown as DatabaseService;
+  return {
+    withTransaction: makeTx(database),
+    query: (text: string, params: unknown[] = []) => database.query(text, params),
+  } as unknown as DatabaseService;
 }
 
+// Tạo khuyến mãi riêng cho test; mốc thời gian tính bằng giờ so với hiện tại.
+export async function insertPromotion(
+  database: PGlite,
+  promotion: {
+    id: string;
+    code: string;
+    type: "PERCENT" | "FIXED";
+    value: number;
+    minimumAmount?: number;
+    active?: boolean;
+    startsHoursFromNow?: number;
+    endsHoursFromNow?: number;
+  },
+): Promise<void> {
+  await database.query(
+    `INSERT INTO promotions (id, code, type, value, minimum_amount, active, starts_at, ends_at)
+     VALUES ($1, $2, $3, $4, $5, $6,
+             now() + ($7::int * interval '1 hour'),
+             now() + ($8::int * interval '1 hour'))`,
+    [
+      promotion.id,
+      promotion.code,
+      promotion.type,
+      promotion.value,
+      promotion.minimumAmount ?? 0,
+      promotion.active ?? true,
+      promotion.startsHoursFromNow ?? -24,
+      promotion.endsHoursFromNow ?? 24,
+    ],
+  );
+}
+
+// Tồn của món TV4: nếu có nguyên liệu tương thích legacy-product-<id> thì đọc ở đó (đường đặt đơn mới),
+// không có thì đọc products.stock (DB ở test/ingredient-flow dùng công thức thật).
 export async function readStock(database: PGlite): Promise<number> {
+  const ingredient = await database.query<{ stock: number }>(
+    "SELECT stock FROM ingredients WHERE id = $1",
+    [`legacy-product-${PRODUCT_ID}`],
+  );
+  if (ingredient.rows[0]) return ingredient.rows[0].stock;
+  return readProductStock(database);
+}
+
+// Tồn ở cột products.stock (đường cũ: reserveStock không có orderId).
+export async function readProductStock(database: PGlite): Promise<number> {
   const result = await database.query<{ stock: number }>(
     "SELECT stock FROM products WHERE id = $1",
     [PRODUCT_ID],
@@ -83,9 +139,14 @@ export async function readStock(database: PGlite): Promise<number> {
 }
 
 export async function setStock(database: PGlite, stock: number): Promise<void> {
+  // Sau khi chuyển sang tồn nguyên liệu, món TV4 lấy tồn từ nguyên liệu tương thích legacy-product-<id> (1 đơn vị/ly).
   await database.query("UPDATE products SET stock = $1 WHERE id = $2", [
     stock,
     PRODUCT_ID,
+  ]);
+  await database.query("UPDATE ingredients SET stock = $1 WHERE id = $2", [
+    stock,
+    `legacy-product-${PRODUCT_ID}`,
   ]);
 }
 
@@ -105,4 +166,99 @@ export async function countOrders(database: PGlite): Promise<number> {
     "SELECT count(*)::int AS n FROM orders",
   );
   return result.rows[0].n;
+}
+
+// ---- Phần dùng cho test nguyên liệu (DB đủ 001, 002, 003, 004, 006) ----
+export const NO_RECIPE_PRODUCT_ID = "tv4-khong-cong-thuc"; // món không có công thức nguyên liệu
+export const ING_TEA = "tv4-nl-tra"; // nguyên liệu chính của món tv4-tra (ml)
+export const ING_PEARL = "tv4-nl-tc"; // nguyên liệu của topping "tc" (gram)
+export const ING_START = 1000; // tồn đầu mỗi nguyên liệu của TV4
+export const TEA_PER_SIZE: Record<string, number> = { S: 100, M: 125, L: 150 };
+export const PEARL_PER_TOPPING = 50;
+
+// Dựng DB đủ 001, 002, 003, 004, 006. Mỗi file nạp bằng một lần exec riêng (mỗi lần là một transaction)
+// để tránh lỗi "pending trigger events" khi 005/006 đổi bảng sau khi 003 vừa chèn dữ liệu.
+// Món và công thức của TV4 được thêm SAU 006, vì 006 xóa công thức tạm của mọi món chưa có trong danh mục.
+export async function createIngredientTestDb(): Promise<PGlite> {
+  const database = new PGlite();
+  const sql = (name: string) =>
+    readFileSync(resolve(__dirname, "../database", name), "utf8");
+  for (const file of [
+    "001_schema.sql",
+    "007_order_payment_codes.sql",
+    "009_qr_reissue.sql",
+    "002_seed.sql",
+    "003_catalog.sql",
+    "004_image_urls.sql",
+    "006_recipe_data.sql",
+  ]) {
+    await database.exec(sql(file));
+  }
+  const sizes = JSON.stringify([
+    { name: "S", extraPrice: 0 },
+    { name: "M", extraPrice: EXTRA_M },
+    { name: "L", extraPrice: 10000 },
+  ]);
+  const toppings = JSON.stringify([
+    { id: "tc", name: "Trân châu", price: TOPPING_TC },
+  ]);
+  await database.query(
+    `INSERT INTO products (id, name, category, price, stock, sizes, toppings)
+     VALUES ($1, 'Trà TV4', 'test', $2, 10, $3::jsonb, $4::jsonb),
+            ($5, 'Món chưa có công thức', 'test', $2, 10, $3::jsonb, '[]'::jsonb)`,
+    [PRODUCT_ID, UNIT_S, sizes, toppings, NO_RECIPE_PRODUCT_ID],
+  );
+  await database.query(
+    `INSERT INTO ingredients (id, name, unit, stock) VALUES
+       ($1, 'Trà TV4', 'ml', $3), ($2, 'Trân châu TV4', 'gram', $3)`,
+    [ING_TEA, ING_PEARL, ING_START],
+  );
+  for (const [size, quantity] of Object.entries(TEA_PER_SIZE)) {
+    await database.query(
+      `INSERT INTO product_recipes (product_id, size, ingredient_id, quantity)
+       VALUES ($1, $2, $3, $4)`,
+      [PRODUCT_ID, size, ING_TEA, quantity],
+    );
+  }
+  await database.query(
+    `INSERT INTO topping_recipes (product_id, topping_id, ingredient_id, quantity)
+     VALUES ($1, 'tc', $2, $3)`,
+    [PRODUCT_ID, ING_PEARL, PEARL_PER_TOPPING],
+  );
+  return database;
+}
+
+export async function readIngredient(
+  database: PGlite,
+  ingredientId: string,
+): Promise<number> {
+  const result = await database.query<{ stock: number }>(
+    "SELECT stock FROM ingredients WHERE id = $1",
+    [ingredientId],
+  );
+  return result.rows[0].stock;
+}
+
+export async function setIngredient(
+  database: PGlite,
+  ingredientId: string,
+  stock: number,
+): Promise<void> {
+  await database.query("UPDATE ingredients SET stock = $1 WHERE id = $2", [
+    stock,
+    ingredientId,
+  ]);
+}
+
+export async function readReservations(
+  database: PGlite,
+  orderId: string,
+): Promise<Array<{ ingredientId: string; quantity: number }>> {
+  const result = await database.query<{ ingredientId: string; quantity: number }>(
+    `SELECT ingredient_id AS "ingredientId", quantity
+     FROM order_ingredient_reservations WHERE order_id = $1
+     ORDER BY ingredient_id`,
+    [orderId],
+  );
+  return result.rows;
 }

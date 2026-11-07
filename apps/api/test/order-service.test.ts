@@ -1,5 +1,5 @@
-// Test nghiệp vụ OrdersService + InventoryService chạy với model thật trên PostgreSQL (PGlite).
-// DatabaseService được thay bằng bản giả chỉ có withTransaction (BEGIN/COMMIT/ROLLBACK).
+// Test nghiệp vụ OrdersService + InventoryService + khuyến mãi (TV1) với model thật trên PostgreSQL (PGlite).
+// DatabaseService được thay bằng bản giả có withTransaction (BEGIN/COMMIT/ROLLBACK) và query.
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import type { PGlite } from "@electric-sql/pglite";
@@ -23,9 +23,11 @@ import {
   USER_ID,
   countOrders,
   createTestDb,
+  insertPromotion,
   makeFakeDatabase,
   makeTx,
   readOrder,
+  readProductStock,
   readStock,
   setStock,
   type Tx,
@@ -39,16 +41,45 @@ let inventory: InventoryService;
 before(async () => {
   db = await createTestDb();
   tx = makeTx(db);
+  const fakeDb = makeFakeDatabase(db);
   inventory = new InventoryService(new InventoryModel());
-  const promotions = new PromotionsService({
-    findByCode: async () => null,
-  } as PromotionModel);
-  service = new OrdersService(
-    makeFakeDatabase(db),
-    new OrderModel(),
-    inventory,
-    promotions,
-  );
+  const promotions = new PromotionsService(new PromotionModel(fakeDb));
+  service = new OrdersService(fakeDb, new OrderModel(), inventory, promotions);
+
+  // Khuyến mãi riêng của test, không phụ thuộc dữ liệu mẫu của TV1.
+  await insertPromotion(db, { id: "tv4-promo-pct", code: "TV4PCT10", type: "PERCENT", value: 10 });
+  await insertPromotion(db, { id: "tv4-promo-fix", code: "TV4FIX5K", type: "FIXED", value: 5000 });
+  await insertPromotion(db, { id: "tv4-promo-big", code: "TV4BIG", type: "FIXED", value: 999999 });
+  await insertPromotion(db, {
+    id: "tv4-promo-min",
+    code: "TV4MIN100K",
+    type: "FIXED",
+    value: 5000,
+    minimumAmount: 100000,
+  });
+  await insertPromotion(db, {
+    id: "tv4-promo-old",
+    code: "TV4OLD",
+    type: "PERCENT",
+    value: 10,
+    startsHoursFromNow: -48,
+    endsHoursFromNow: -24,
+  });
+  await insertPromotion(db, {
+    id: "tv4-promo-future",
+    code: "TV4FUTURE",
+    type: "PERCENT",
+    value: 10,
+    startsHoursFromNow: 24,
+    endsHoursFromNow: 48,
+  });
+  await insertPromotion(db, {
+    id: "tv4-promo-off",
+    code: "TV4OFF",
+    type: "PERCENT",
+    value: 10,
+    active: false,
+  });
 });
 after(async () => {
   await db.close();
@@ -66,6 +97,15 @@ const line = (quantity: number, size = "S", toppingIds: string[] = []) => ({
 
 async function createOrder(quantity: number) {
   return service.createOrder(USER_ID, { items: [line(quantity)] });
+}
+
+async function readPricing(orderId: string) {
+  const result = await db.query<{
+    discount: number;
+    total: number;
+    promotion_id: string | null;
+  }>("SELECT discount, total, promotion_id FROM orders WHERE id = $1", [orderId]);
+  return result.rows[0];
 }
 
 async function addProcessingPayment(orderId: string, amount: number) {
@@ -121,10 +161,16 @@ async function insertExpiredOrder(
       );
     }
   });
-  await db.query("UPDATE products SET stock = stock - $1 WHERE id = $2", [
+  // Tồn nay nằm ở nguyên liệu: trừ nguyên liệu và ghi bản giữ chỗ để releaseStock hoàn lại đúng.
+  const ingredientId = `legacy-product-${PRODUCT_ID}`;
+  await db.query("UPDATE ingredients SET stock = stock - $1 WHERE id = $2", [
     quantity,
-    PRODUCT_ID,
+    ingredientId,
   ]);
+  await db.query(
+    "INSERT INTO order_ingredient_reservations (order_id, ingredient_id, quantity) VALUES ($1, $2, $3)",
+    [id, ingredientId, quantity],
+  );
 }
 
 test("createOrder tính giá từ DB (bỏ qua giá client), giữ tồn và ghi đơn + chi tiết", async () => {
@@ -232,6 +278,95 @@ test("createOrder kiểm tra đầu vào: items rỗng/thiếu và quantity sai"
   assert.equal(await readStock(db), 10);
 });
 
+test("createOrder áp mã PERCENT: chuẩn hóa mã, giảm theo %, lưu promotion_id", async () => {
+  const subtotal = UNIT_S * 2;
+  const discount = Math.floor((subtotal * 10) / 100);
+  const result = await service.createOrder(USER_ID, {
+    items: [line(2)],
+    promotionCode: " tv4pct10 ", // khác hoa thường và có khoảng trắng
+  });
+
+  assert.equal(result.subtotal, subtotal);
+  assert.equal(result.discount, discount);
+  assert.equal(result.total, subtotal - discount);
+  const saved = await readPricing(result.orderId);
+  assert.equal(saved.discount, discount);
+  assert.equal(saved.total, subtotal - discount);
+  assert.equal(saved.promotion_id, "tv4-promo-pct");
+  assert.equal(await readStock(db), 8);
+});
+
+test("createOrder áp mã FIXED và giảm không vượt subtotal", async () => {
+  const fixed = await service.createOrder(USER_ID, {
+    items: [line(2)],
+    promotionCode: "TV4FIX5K",
+  });
+  assert.equal(fixed.discount, 5000);
+  assert.equal(fixed.total, UNIT_S * 2 - 5000);
+  assert.equal((await readPricing(fixed.orderId)).promotion_id, "tv4-promo-fix");
+
+  const big = await service.createOrder(USER_ID, {
+    items: [line(1)],
+    promotionCode: "TV4BIG",
+  });
+  assert.equal(big.discount, UNIT_S); // bị chặn ở subtotal
+  assert.equal(big.total, 0);
+});
+
+test("createOrder: mã có mức đơn tối thiểu", async () => {
+  const ordersBefore = await countOrders(db);
+  await assert.rejects(
+    () => service.createOrder(USER_ID, { items: [line(2)], promotionCode: "TV4MIN100K" }),
+    BadRequestException,
+  );
+  assert.equal(await readStock(db), 10);
+  assert.equal(await countOrders(db), ordersBefore);
+
+  // 5 ly x 20000 = 100000, đúng bằng mức tối thiểu nên được áp
+  const ok = await service.createOrder(USER_ID, {
+    items: [line(5)],
+    promotionCode: "TV4MIN100K",
+  });
+  assert.equal(ok.subtotal, 100000);
+  assert.equal(ok.discount, 5000);
+  assert.equal(ok.total, 95000);
+});
+
+test("createOrder từ chối mã không tồn tại, hết hạn, chưa tới hạn, đã tắt, và không đụng tồn kho", async () => {
+  const ordersBefore = await countOrders(db);
+  for (const code of ["KHONG-TON-TAI", "TV4OLD", "TV4FUTURE", "TV4OFF"]) {
+    await assert.rejects(
+      () => service.createOrder(USER_ID, { items: [line(1)], promotionCode: code }),
+      BadRequestException,
+      `mã ${code} phải bị từ chối`,
+    );
+  }
+  assert.equal(await readStock(db), 10);
+  assert.equal(await countOrders(db), ordersBefore);
+});
+
+test("createOrder: không mã/mã rỗng thì không giảm giá, client không tự ép được giảm giá", async () => {
+  const input = {
+    items: [line(1)],
+    promotionCode: "   ",
+    discount: 99999,
+    promotionId: "tv4-promo-big",
+  } as unknown as CreateOrderInput;
+  const result = await service.createOrder(USER_ID, input);
+  assert.equal(result.discount, 0);
+  assert.equal(result.total, UNIT_S);
+  assert.equal((await readPricing(result.orderId)).promotion_id, null);
+
+  await assert.rejects(
+    () =>
+      service.createOrder(USER_ID, {
+        items: [line(1)],
+        promotionCode: 123,
+      } as unknown as CreateOrderInput),
+    BadRequestException,
+  );
+});
+
 test("cancelOrder: chặn người lạ, hủy hoàn tồn đúng một lần, không hủy lại", async () => {
   const created = await createOrder(2);
   assert.equal(await readStock(db), 8);
@@ -333,7 +468,7 @@ test("preparePaymentRetry: giữ tồn mới rồi đưa PAYMENT_FAILED về PEN
   assert.equal(await readStock(db), 8);
 });
 
-test("InventoryService: reserveStock đủ/thiếu/không tồn tại, releaseStock trả true rồi false", async () => {
+test("InventoryService: reserveStock đủ/thiếu/không tồn tại, hết hàng thì createOrder bị từ chối", async () => {
   await assert.rejects(
     () =>
       tx((c) =>
@@ -345,7 +480,7 @@ test("InventoryService: reserveStock đủ/thiếu/không tồn tại, releaseSt
   await tx((c) =>
     inventory.reserveStock([{ productId: PRODUCT_ID, quantity: 10 }], c),
   );
-  assert.equal(await readStock(db), 0);
+  assert.equal(await readProductStock(db), 0);
   await assert.rejects(
     () =>
       tx((c) =>
@@ -353,8 +488,8 @@ test("InventoryService: reserveStock đủ/thiếu/không tồn tại, releaseSt
       ),
     ConflictException,
   );
-  assert.equal(await readStock(db), 0);
-
-  const created = await createOrder(1).catch(() => null);
-  assert.equal(created, null); // kho đang 0 nên đặt phải thất bại
+  assert.equal(await readProductStock(db), 0);
+  // đặt đơn thật lấy tồn từ nguyên liệu: hết nguyên liệu thì bị từ chối
+  await setStock(db, 0);
+  await assert.rejects(() => createOrder(1), ConflictException);
 });

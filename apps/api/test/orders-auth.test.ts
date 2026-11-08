@@ -1,18 +1,21 @@
 // TV3 — API đơn của khách phải cần đăng nhập thật và chỉ trả dữ liệu của chính chủ.
-// Dựng toàn bộ AppModule (cùng controller/provider với bản chạy thật), chỉ thay DatabaseService bằng PGlite đã nạp schema + seed.
+// Dựng toàn bộ AppModule (cùng controller/provider với bản chạy thật), chỉ thay DatabaseService bằng PGlite đã nạp 001 + 007 + 009 + 002_seed.
 // Đi qua HTTP thật: đăng ký, đăng nhập, rồi gọi /orders/me và /orders/:id với JWT (Guard + Controller + Service + SQL).
 import "reflect-metadata";
 import { PGlite } from "@electric-sql/pglite";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { after, before, test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { Module, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import { sign } from "jsonwebtoken";
+import jsonwebtoken from "jsonwebtoken";
 import { AppModule } from "../src/app.module";
 import { DatabaseService } from "../src/config/db";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const { sign } = jsonwebtoken;
 const SECRET = "test-secret-for-brewlite-orders-auth-0123456789";
 const SEED_PASSWORD = "BrewLite123!";
 const pg = new PGlite();
@@ -44,8 +47,9 @@ before(async () => {
   process.env.JWT_SECRET = SECRET;
   await pg.exec("BEGIN");
   await pg.exec(sql("001_schema.sql"));
-  await pg.exec(sql("002_integrity.sql"));
-  await pg.exec(sql("003_seed.sql"));
+  await pg.exec(sql("007_order_payment_codes.sql"));
+  await pg.exec(sql("009_qr_reissue.sql"));
+  await pg.exec(sql("002_seed.sql"));
   await pg.exec("COMMIT");
   const top = (
     await pg.query<{

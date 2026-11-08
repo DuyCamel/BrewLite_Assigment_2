@@ -1,4 +1,4 @@
-// TV3 — Test Auth với schema thật (001/002/003) trên PGlite, cùng cách dựng DB như test/database.test.ts.
+// TV3 — Test Auth với schema thật (001/002) trên PGlite, cùng cách dựng DB như test/database.test.ts.
 // Kiểm tra SQL của UserModel khớp bảng users và tài khoản seed đăng nhập được.
 import "reflect-metadata";
 import { PGlite } from "@electric-sql/pglite";
@@ -31,8 +31,7 @@ before(async () => {
   process.env.JWT_SECRET = "test-secret-for-brewlite-auth-0123456789abcdef";
   await pglite.exec("BEGIN");
   await pglite.exec(sql("001_schema.sql"));
-  await pglite.exec(sql("002_integrity.sql"));
-  await pglite.exec(sql("003_seed.sql"));
+  await pglite.exec(sql("002_seed.sql"));
   await pglite.exec("COMMIT");
 });
 after(async () => {

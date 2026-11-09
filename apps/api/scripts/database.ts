@@ -39,11 +39,11 @@ async function main() {
             .sort();
           for (const name of files) {
             if (
-                name === "003_catalog.sql" ||
-                name === "004_image_urls.sql" ||
-                name === "005_recipe_data.sql" ||
-                name === "006_recipe_data.sql" ||
-                name === "008_image_urls_backfill.sql"
+              name === "003_catalog.sql" ||
+              name === "004_image_urls.sql" ||
+              name === "005_recipe_data.sql" ||
+              name === "006_recipe_data.sql" ||
+              name === "008_image_urls_backfill.sql"
             ) {
               const products = await client.query(
                 "SELECT EXISTS (SELECT 1 FROM products) AS has_products",
@@ -62,10 +62,20 @@ async function main() {
               [name],
             );
             if (current.rows.length) {
-              if (current.rows[0].checksum !== checksum)
+              if (current.rows[0].checksum !== checksum) {
+                if (name === "001_schema.sql") {
+                  await client.query(sql);
+                  await client.query(
+                    "UPDATE schema_migrations SET checksum=$2, applied_at=now() WHERE name=$1",
+                    [name, checksum],
+                  );
+                  console.log(`Đã cập nhật ${name}`);
+                  continue;
+                }
                 throw new Error(
                   `Migration đã chạy bị sửa: ${name}. Tạo file phiên bản mới.`,
                 );
+              }
               continue;
             }
             await client.query(sql);
@@ -78,7 +88,7 @@ async function main() {
         } else {
           await client.query(
             readFileSync(
-            resolve(__dirname, "../database/002_seed.sql"),
+              resolve(__dirname, "../database/002_seed.sql"),
               "utf8",
             ),
           );

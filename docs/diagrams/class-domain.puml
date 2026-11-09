@@ -1,0 +1,111 @@
+@startuml
+title Task 2.3 - Các thực thể domain BrewLite hiện có
+skinparam backgroundColor #F8FBF9
+skinparam class {
+  BackgroundColor #E7F3EC
+  BorderColor #315A4C
+  ArrowColor #315A4C
+}
+hide empty methods
+left to right direction
+
+class User {
+  id: string
+  email: string
+  passwordHash: string
+  loyaltyPoints: int
+}
+class Product {
+  id: string
+  name: string
+  price: VND
+  stock: int
+  version: int
+  sizes / toppings: JSON
+}
+class Order {
+  id: string
+  paymentCode: string
+  status: OrderStatus
+  subtotal / discount / total: VND
+  stockReleased: boolean
+  expiresAt / qrExpiresAt: timestamp
+  qrAttempts: 1..2
+}
+class OrderItem {
+  productId: string
+  size: string
+  toppingIds: string[]
+  quantity: int
+  unitPrice / lineTotal: VND
+}
+class Payment {
+  id: string
+  idempotencyKey: string
+  method: WALLET | CARD
+  status: PaymentStatus
+  amount: VND
+  provider: MOCK | SEPAY
+}
+class Promotion {
+  code: string
+  type: PERCENT | FIXED
+  minOrderAmount: VND
+  validFrom / validTo: timestamp
+  isActive: boolean
+}
+class LoyaltyTransaction {
+  orderId: string
+  type: EARN
+  points: int
+}
+class Ingredient {
+  id: string
+  stock: int
+  version: int
+}
+class IngredientReservation {
+  orderId: string
+  ingredientId: string
+  quantity: int
+}
+
+enum OrderStatus {
+  PENDING
+  PAYMENT_FAILED
+  PAID
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+enum PaymentStatus {
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+User "1" --> "0..*" Order : đặt
+User "1" --> "0..*" LoyaltyTransaction : nhận điểm
+Order "1" *-- "1..*" OrderItem : gồm
+OrderItem "0..*" --> "1" Product : chốt giá từ
+Order "0..*" --> "0..1" Promotion : áp mã
+Order "1" --> "0..*" Payment : lần thử
+Order "1" --> "0..1" LoyaltyTransaction : EARN
+Order "1" --> "0..*" IngredientReservation : giữ tồn
+Ingredient "1" <-- "0..*" IngredientReservation : thuộc về
+Order ..> OrderStatus
+Payment ..> PaymentStatus
+
+note right of Ingredient
+  Tồn nguyên liệu theo recipe là đường chính.
+  Product.stock/version là đường dự phòng
+  khi không dùng recipe.
+end note
+note bottom of OrderStatus
+  DB quy định: PENDING -> PAID / PAYMENT_FAILED / CANCELLED;
+  PAYMENT_FAILED -> PENDING / CANCELLED;
+  PAID -> PREPARING -> READY -> COMPLETED.
+  API nhân viên để thực hiện các bước pha chế chưa có.
+end note
+@enduml

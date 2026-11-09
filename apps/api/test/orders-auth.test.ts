@@ -5,13 +5,16 @@ import "reflect-metadata";
 import { PGlite } from "@electric-sql/pglite";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { after, before, test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { Module, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import { sign } from "jsonwebtoken";
-import { AppModule } from "../src/app.module";
-import { DatabaseService } from "../src/config/db";
+import jsonwebtoken from "jsonwebtoken";
+const { sign } = jsonwebtoken;
+const __dirname = dirname(fileURLToPath(import.meta.url));
+import { AppModule } from "../src/app.module.js";
+import { DatabaseService } from "../src/config/db.js";
 
 const SECRET = "test-secret-for-brewlite-orders-auth-0123456789";
 const SEED_PASSWORD = "BrewLite123!";
@@ -42,11 +45,10 @@ const saved = {
 before(async () => {
   process.env.PRODUCT_DATA_SOURCE = "postgres";
   process.env.JWT_SECRET = SECRET;
-  await pg.exec("BEGIN");
   await pg.exec(sql("001_schema.sql"));
-  await pg.exec(sql("002_integrity.sql"));
-  await pg.exec(sql("003_seed.sql"));
-  await pg.exec("COMMIT");
+  await pg.exec(sql("007_order_payment_codes.sql"));
+  await pg.exec(sql("009_qr_reissue.sql"));
+  await pg.exec(sql("002_seed.sql"));
   const top = (
     await pg.query<{
       user_id: string;

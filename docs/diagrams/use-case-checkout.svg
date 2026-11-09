@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1260 800" role="img" aria-labelledby="title desc">
+  <title id="title">UC05 - Đặt và thanh toán đơn hàng BrewLite</title>
+  <desc id="desc">Khách hàng đặt và thanh toán đơn hàng. Use-case chính bao gồm chọn món và giỏ hàng, xác thực, tạo đơn và giữ tồn, thanh toán Ví hoặc Thẻ mô phỏng và xem kết quả. Cổng thanh toán mô phỏng tham gia bước thanh toán.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#385f57" />
+    </marker>
+    <style>
+      text { font-family: Arial, sans-serif; fill: #173b33; }
+      .heading { font-size: 26px; font-weight: 700; }
+      .label { font-size: 18px; font-weight: 600; }
+      .small { font-size: 14px; fill: #385f57; }
+      .boundary { fill: #f7fbf9; stroke: #7d9b91; stroke-width: 2; }
+      .case { fill: #fff; stroke: #295d50; stroke-width: 2.5; }
+      .main { fill: #e2f2eb; stroke: #1f5446; stroke-width: 3; }
+      .actor, .association { fill: none; stroke: #173b33; stroke-width: 2.5; stroke-linecap: round; }
+      .include { fill: none; stroke: #385f57; stroke-width: 2; stroke-dasharray: 7 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1260" height="800" fill="#edf3f0" />
+  <text class="heading" x="630" y="48" text-anchor="middle">UC05 · Đặt và thanh toán đơn hàng</text>
+  <rect class="boundary" x="245" y="78" width="740" height="660" rx="16" />
+  <text class="label" x="280" y="114">BrewLite</text>
+
+  <circle class="actor" cx="110" cy="194" r="18" />
+  <path class="actor" d="M110 212 V278 M73 239 H147 M110 278 L79 323 M110 278 L141 323" />
+  <text class="label" x="110" y="355" text-anchor="middle">Khách hàng</text>
+  <path class="association" d="M147 238 L430 214" />
+
+  <circle class="actor" cx="1120" cy="426" r="18" />
+  <path class="actor" d="M1120 444 V508 M1083 471 H1157 M1120 508 L1089 553 M1120 508 L1151 553" />
+  <text class="label" x="1120" y="583" text-anchor="middle">Cổng thanh toán</text>
+  <text class="small" x="1120" y="605" text-anchor="middle">mô phỏng</text>
+  <path class="association" d="M1083 472 L898 486" />
+
+  <ellipse class="main" cx="625" cy="210" rx="195" ry="54" />
+  <text class="label" x="625" y="207" text-anchor="middle">Đặt và thanh toán</text>
+  <text class="label" x="625" y="231" text-anchor="middle">đơn hàng</text>
+
+  <ellipse class="case" cx="450" cy="365" rx="155" ry="48" />
+  <text class="label" x="450" y="360" text-anchor="middle">Chọn món, tùy chọn</text>
+  <text class="label" x="450" y="385" text-anchor="middle">và quản lý giỏ</text>
+
+  <ellipse class="case" cx="775" cy="365" rx="145" ry="48" />
+  <text class="label" x="775" y="373" text-anchor="middle">Xác thực khi đặt</text>
+
+  <ellipse class="case" cx="450" cy="490" rx="155" ry="48" />
+  <text class="label" x="450" y="484" text-anchor="middle">Tạo đơn và giữ tồn</text>
+  <text class="small" x="450" y="509" text-anchor="middle">PENDING · giá chốt tại API</text>
+
+  <ellipse class="case" cx="775" cy="490" rx="125" ry="48" />
+  <text class="label" x="775" y="484" text-anchor="middle">Thanh toán</text>
+  <text class="label" x="775" y="509" text-anchor="middle">Ví/Thẻ mô phỏng</text>
+
+  <ellipse class="case" cx="625" cy="625" rx="163" ry="48" />
+  <text class="label" x="625" y="619" text-anchor="middle">Xem kết quả</text>
+  <text class="small" x="625" y="645" text-anchor="middle">PAID / PAYMENT_FAILED / PENDING</text>
+
+  <path class="include" d="M555 259 L480 319" />
+  <text class="small" x="466" y="288" text-anchor="middle">«include»</text>
+  <path class="include" d="M695 259 L750 318" />
+  <text class="small" x="771" y="288" text-anchor="middle">«include»</text>
+  <path class="include" d="M431 264 L302 285 L302 475 L304 475" />
+  <text class="small" x="327" y="449">«include»</text>
+  <path class="include" d="M815 211 L946 260 L946 477 L900 477" />
+  <text class="small" x="860" y="447">«include»</text>
+  <path class="include" d="M630 264 L630 576" />
+  <text class="small" x="643" y="565">«include»</text>
+
+  <text class="small" x="625" y="713" text-anchor="middle">Luồng thay thế: áp mã giảm giá, thử lại hoặc hủy đơn (xem đặc tả A5-A10).</text>
+  <text class="small" x="630" y="776" text-anchor="middle">Use-case trọng tâm Task 1.3 · Bản SVG có thể chỉnh sửa và nhúng vào tài liệu</text>
+</svg>

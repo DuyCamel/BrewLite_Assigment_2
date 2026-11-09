@@ -24,8 +24,8 @@ BrewLite hỗ trợ khách hàng đặt đồ uống và thanh toán không dùn
 | Khuyến mãi, mock payment, loyalty, VietQR/SePay | Đã có code liên quan; cần xác nhận tích hợp, trường hợp lỗi và test |
 | Dockerfile web/API và Compose DB/web/API | Có cấu hình; **chưa có minh chứng chạy thành công sau chuyển thư mục** |
 | CI | Có `.github/workflows/ci.yml`; cần minh chứng PR CI xanh/đỏ và required checks |
-| Tài liệu Task 1–3 theo cấu trúc đề | Chưa thấy đầy đủ trong `docs/requirements`, `docs/diagrams`, `docs/architecture` |
-| `.env.example`, issue board/backlog, traceability matrix | Cần bổ sung/kiểm chứng |
+| Tài liệu Task 1–3 theo cấu trúc đề | Đã có trong `docs/requirements/`, `docs/diagrams/`, `docs/architecture/`, `docs/deployment.md` |
+| `.env.example`, issue board/backlog, traceability matrix | Đã có `.env.example` và `docs/traceability-matrix.md`; cần bổ sung/kiểm chứng issue board/backlog |
 | E2E thực thi, CD, production HTTPS, release, rollback | Chưa có minh chứng hoàn thành |
 
 **Quy tắc:** Có file hoặc code không đồng nghĩa đã đạt tiêu chí nghiệm thu. Các trạng thái trên không thay cho kết quả chạy test hoặc deployment.
@@ -33,20 +33,20 @@ BrewLite hỗ trợ khách hàng đặt đồ uống và thanh toán không dùn
 ## 3. Cấu trúc repository
 
 ```text
-BrewLite_Assigment_2/
+brewlite/
 ├── apps/
-│   ├── web/                    # Next.js frontend
-│   └── api/                    # NestJS backend, database, migration/seed
-├── docs/                       # Tài liệu nhóm hiện có; cần bổ sung Task 1–3
-│   └── PHAN_CONG.md            # Bản phân công hoàn thiện Assignment 2
-├── tests/
-│   └── e2e/                    # Hiện có file .todo; cần E2E chạy được
-├── .github/workflows/
-│   └── ci.yml                  # CI; CD chưa bổ sung
+│   ├── web/                    # Next.js mobile-first/PWA
+│   └── api/                    # NestJS
+├── docs/
+│   ├── requirements/           # Task 1
+│   ├── diagrams/               # Task 2
+│   ├── architecture/           # Task 3
+│   ├── traceability-matrix.md
+│   └── deployment.md
+├── tests/                      # Integration/E2E
+├── .github/workflows/          # CI/CD
 ├── docker-compose.yml
-├── .env_vidu                   # Mẫu env hiện có; cần chuẩn hóa .env.example
-├── package.json
-├── package-lock.json
+├── .env.example
 └── README.md
 ```
 
@@ -72,15 +72,15 @@ Tạo file môi trường tại **gốc repo**:
 
 ```powershell
 # Windows PowerShell
-Copy-Item .env_vidu .env
+Copy-Item .env.example .env
 ```
 
 ```bash
 # macOS/Linux
-cp .env_vidu .env
+cp .env.example .env
 ```
 
-Chỉnh `.env` theo database local, `JWT_SECRET` an toàn và các cấu hình thực sự sử dụng. Đề yêu cầu `.env.example`; hiện repository sử dụng `.env_vidu`, nên nhóm phải bổ sung file tên chuẩn mà không đưa secret thật lên Git.
+Chỉnh `.env` theo database local, `JWT_SECRET` an toàn và các cấu hình thực sự sử dụng; tuyệt đối không đưa secret thật lên Git.
 
 ### Chạy PostgreSQL + ứng dụng bằng npm
 
@@ -194,14 +194,11 @@ Bàn giao Task 5.4 phải có URL web **HTTPS**, URL API và `/health`, PostgreS
 
 ## 8. Tài liệu nhóm hiện có
 
-- [Phân công mới](docs/PHAN_CONG.md)
-- [Vị trí code (tài liệu cũ, cần cập nhật đường dẫn)](docs/VI_TRI_CODE.md)
-- [Cấu trúc chương trình (cần cập nhật)](docs/CAU_TRUC.md)
-- [Quy ước code](docs/QUY_UOC.md)
-- [Kiểm tra](docs/KIEM_TRA.md)
-- [Hướng dẫn database](apps/api/database/README.md)
-
-Các tài liệu bắt buộc của Assignment 2 chưa tồn tại đầy đủ sẽ được nhóm tạo trong những task tương ứng; README không thay thế SRS, diagram, ADR, traceability hoặc minh chứng CI/CD.
+- **Task 1 — Yêu cầu:** [context-and-scope.md](docs/requirements/context-and-scope.md), [srs.md](docs/requirements/srs.md), [use-case-checkout.md](docs/requirements/use-case-checkout.md)
+- **Task 2 — Mô hình hóa:** [docs/diagrams/task2.md](docs/diagrams/task2.md) ([activity-checkout.svg](docs/diagrams/activity-checkout.svg), [sequence-checkout.svg](docs/diagrams/sequence-checkout.svg), [class-domain.svg](docs/diagrams/class-domain.svg))
+- **Task 3 — Kiến trúc & Triển khai:** [docs/architecture/README.md](docs/architecture/README.md), [docs/architecture/adr/](docs/architecture/adr/), [docs/deployment.md](docs/deployment.md) ([deployment.svg](docs/diagrams/deployment.svg))
+- **Truy vết:** [docs/traceability-matrix.md](docs/traceability-matrix.md)
+- **Nội bộ nhóm:** [Phân công mới](docs/PHAN_CONG.md), [Công thức](docs/CONG_THUC.md), [Hướng dẫn database](apps/api/database/README.md)
 
 ## 9. Checklist trước nghiệm thu
 

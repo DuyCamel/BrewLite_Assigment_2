@@ -66,16 +66,6 @@ test("API bảo vệ đơn hàng và thanh toán bằng xác thực", async () =
   assert.equal(productResponse.status, 404);
 });
 
-
-test("API còn khung trả 501, không nhận thanh toán giả", async () => {
-  for (const [path, method] of [
-    ["/orders", "POST"],
-    ["/payments", "POST"],
-  ]) {
-    const response = await fetch(`${origin}${path}`, { method });
-    assert.equal(response.status, 501, path);
-  }
-});
 function postJson(path: string, body: unknown) {
   return fetch(`${origin}${path}`, {
     method: "POST",

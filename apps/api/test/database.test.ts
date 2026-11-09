@@ -14,8 +14,7 @@ const sql = (name: string) =>
 before(async () => {
   await db.exec("BEGIN");
   await db.exec(sql("001_schema.sql"));
-  await db.exec(sql("002_integrity.sql"));
-  await db.exec(sql("003_seed.sql"));
+  await db.exec(sql("002_seed.sql"));
   await db.exec("COMMIT");
 });
 after(async () => {
@@ -63,8 +62,7 @@ test("001/002 và 003 có thể chạy lại mà không tăng dữ liệu/tồn/
     "SELECT sum(loyalty_points)::int points FROM users",
   );
   await db.exec(sql("001_schema.sql"));
-  await db.exec(sql("002_integrity.sql"));
-  await db.exec(sql("003_seed.sql"));
+  await db.exec(sql("002_seed.sql"));
   const after = await db.query(
     "SELECT sum(loyalty_points)::int points FROM users",
   );

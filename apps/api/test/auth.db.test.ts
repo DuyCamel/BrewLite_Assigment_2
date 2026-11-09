@@ -31,8 +31,7 @@ before(async () => {
   process.env.JWT_SECRET = "test-secret-for-brewlite-auth-0123456789abcdef";
   await pglite.exec("BEGIN");
   await pglite.exec(sql("001_schema.sql"));
-  await pglite.exec(sql("002_integrity.sql"));
-  await pglite.exec(sql("003_seed.sql"));
+  await pglite.exec(sql("002_seed.sql"));
   await pglite.exec("COMMIT");
 });
 after(async () => {

@@ -1,0 +1,78 @@
+@startuml
+title Task 3.2 - Sơ đồ triển khai hiện tại (Local Docker Compose + CI GitHub Actions)
+skinparam backgroundColor #F8FBF9
+skinparam node {
+  BackgroundColor #E7F3EC
+  BorderColor #315A4C
+}
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor #315A4C
+}
+skinparam database {
+  BackgroundColor #E7F3EC
+  BorderColor #315A4C
+}
+skinparam cloud {
+  BackgroundColor #EEF6F2
+  BorderColor #658C7D
+}
+
+node "Thiết bị người dùng\n(Mobile-first Browser)" as Client {
+  component "Next.js Client UI\nlocalStorage: giỏ hàng, JWT" as BrowserUI
+}
+
+frame "Ranh giới Local Host (Windows / Docker Desktop)\ndocker-compose.yml + .env (không commit)" as LocalBoundary {
+  node "Docker Network nội bộ (default)" as DockerNet {
+    node "Container: web (node:22-alpine)\napps/web/Dockerfile" as WebNode {
+      component "Next.js App Router\nPORT=3000\nAPI_BASE_URL=http://api:4000" as WebApp
+    }
+
+    node "Container: api (node:22-alpine)\napps/api/Dockerfile" as ApiNode {
+      component "NestJS API (PORT=4000)\nControllers / Services / Models\nGET /health, OrderExpiryJob (5s)" as ApiApp
+      component "MockPaymentGateway\n(in-process Ví/Thẻ)" as MockGateway
+    }
+
+    node "Container: db (postgres:17-alpine)" as DbNode {
+      database "PostgreSQL 5432\nschema_migrations + dữ liệu" asPg
+      storage "Volume bền vững:\nbrewlite_data\n(/var/lib/postgresql/data)" as DbVol
+    }
+  }
+
+  component "cloudflared tunnel (tùy chọn)\nchạy ngoài container khi test webhook" as Tunnel
+  component "Script CLI: npm run db:migrate / db:seed\n(apps/api/scripts/database.ts)" asMigrateCli
+}
+
+frame "Ranh giới CI (GitHub Actions)\n.github/workflows/ci.yml" as CiBoundary {
+  node "Runner: ubuntu-latest (Node 22)" as CiRunner {
+    component "Job: check (PR & push main)\nnpm ci -> typecheck -> lint -> test -> build\n(Test DB bằng PGlite in-memory)" as CiJob
+  }
+}
+
+cloud "Dịch vụ bên ngoài (chỉ dùng cho nhánh QR/SePay)" as ExtCloud {
+  component "img.vietqr.io\n(Tạo ảnh mã QR)" as VietQR
+  component "SePay Webhook\n(Gửi biến động số dư)" as SePay
+}
+
+BrowserUI --> WebApp : "HTTP\n127.0.0.1:3000 -> :3000"
+BrowserUI --> ApiApp : "HTTP + Bearer JWT\n127.0.0.1:4000 -> :4000\n(NEXT_PUBLIC_API_BASE_URL)"
+BrowserUI ..> VietQR : "HTTPS GET ảnh QR\n(NEXT_PUBLIC_VIETQR_*)"
+
+WebApp --> ApiApp : "HTTP nội bộ\nhttp://api:4000"
+ApiApp --> MockGateway : "Gọi nội bộ\ncharge()"
+ApiApp --> asPg : "TCP nội bộ\ndb:5432\n(pg Pool + Transaction)"
+asPg --> DbVol : "Ghi bền vững"
+asMigrateCli --> asPg : "127.0.0.1:5432\n(hoặc 5433) -> :5432\nadvisory lock + SHA-256"
+
+SePay --> Tunnel : "HTTPS POST\n*.trycloudflare.com"
+Tunnel --> ApiApp : "HTTP POST /webhooks/sepay\n127.0.0.1:4000\n(Header: Authorization Apikey)"
+
+note bottom of LocalBoundary
+  Secrets & Env (.env tại gốc repo):
+  - JWT_SECRET (>=32 ký tự), DB_PASSWORD, SEPAY_WEBHOOK_API_KEY
+  - Healthcheck:
+    + db: pg_isready -U $POSTGRES_USER -d $POSTGRES_DB
+    + api: GET http://127.0.0.1:4000/health (kiểm tra SELECT 1)
+  - Logs: stdout/stderr qua Docker JSON-file log
+end note
+@enduml

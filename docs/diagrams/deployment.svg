@@ -1,0 +1,167 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 720" role="img" aria-labelledby="title desc">
+  <title id="title">Task 3.2 - Sơ đồ triển khai hiện tại của BrewLite (Docker Compose + CI GitHub Actions)</title>
+  <desc id="desc">Sơ đồ triển khai đối chiếu đúng với cấu hình hiện có trong repository: Thiết bị người dùng gọi web (:3000) và api (:4000) trong Docker Compose, api kết nối db (:5432) có volume brewlite_data và chứa MockPaymentGateway nội bộ; cloudflared tunnel nhận webhook SePay; GitHub Actions chạy CI check.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#295d50" />
+    </marker>
+    <marker id="arrow-dashed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#52796f" />
+    </marker>
+    <style>
+      text { font-family: Arial, sans-serif; fill: #173b33; }
+      .heading { font-size: 22px; font-weight: 700; }
+      .sub { font-size: 13px; fill: #385f57; }
+      .zone-title { font-size: 16px; font-weight: 700; fill: #1f5446; }
+      .node-title { font-size: 15px; font-weight: 700; }
+      .item { font-size: 13px; fill: #1d352d; }
+      .mono { font-family: Consolas, monospace; font-size: 12px; fill: #1f4e43; }
+      .edge-label { font-size: 12px; font-weight: 600; fill: #173b33; }
+      .zone { fill: #f7fbf9; stroke: #658c7d; stroke-width: 2; stroke-dasharray: 8 5; }
+      .zone-net { fill: #edf6f1; stroke: #295d50; stroke-width: 2; }
+      .zone-todo { fill: #f8f9fa; stroke: #9ca3af; stroke-width: 2; stroke-dasharray: 6 6; }
+      .node { fill: #ffffff; stroke: #295d50; stroke-width: 2.2; }
+      .inner { fill: #e6f3ec; stroke: #295d50; stroke-width: 1.6; }
+      .db { fill: #d8eee2; stroke: #1f5446; stroke-width: 2; }
+      .todo-box { fill: #ffffff; stroke: #9ca3af; stroke-width: 1.8; }
+      .conn { fill: none; stroke: #295d50; stroke-width: 2.2; marker-end: url(#arrow); }
+      .conn-dashed { fill: none; stroke: #52796f; stroke-width: 2; stroke-dasharray: 6 5; marker-end: url(#arrow-dashed); }
+    </style>
+  </defs>
+
+  <rect width="1360" height="720" fill="#eef4f1" />
+  <text class="heading" x="680" y="36" text-anchor="middle">Task 3.2 · Sơ đồ triển khai hệ thống BrewLite (Docker Compose + CI GitHub Actions)</text>
+  <text class="sub" x="680" y="58" text-anchor="middle">Phản ánh đúng cấu hình triển khai trong repository (docker-compose.yml, .github/workflows/ci.yml)</text>
+
+  <!-- Client Device -->
+  <rect class="node" x="30" y="85" width="265" height="205" rx="12" />
+  <text class="node-title" x="48" y="114">«device» Thiết bị người dùng</text>
+  <text class="item" x="48" y="136">Trình duyệt (Mobile-first / PWA)</text>
+  <rect class="inner" x="46" y="150" width="233" height="122" rx="8" />
+  <text class="node-title" x="60" y="174">Next.js Client Bundle</text>
+  <text class="item" x="60" y="196">• Menu, chi tiết, size/topping</text>
+  <text class="item" x="60" y="216">• localStorage: giỏ hàng &amp; JWT</text>
+  <text class="item" x="60" y="236">• Poll trạng thái đơn / QR</text>
+  <text class="mono" x="60" y="256">NEXT_PUBLIC_API_BASE_URL</text>
+
+  <!-- External Services -->
+  <rect class="zone" x="30" y="325" width="265" height="235" rx="12" />
+  <text class="zone-title" x="48" y="352">Dịch vụ bên ngoài (QR/SePay)</text>
+  <rect class="node" x="48" y="368" width="229" height="75" rx="8" />
+  <text class="node-title" x="62" y="392">«external» img.vietqr.io</text>
+  <text class="item" x="62" y="414">Tạo ảnh QR chuyển khoản</text>
+  <text class="mono" x="62" y="432">NEXT_PUBLIC_VIETQR_*</text>
+
+  <rect class="node" x="48" y="458" width="229" height="84" rx="8" />
+  <text class="node-title" x="62" y="482">«external» SePay Service</text>
+  <text class="item" x="62" y="504">Gửi webhook biến động số dư</text>
+  <text class="mono" x="62" y="524">POST /webhooks/sepay</text>
+
+  <!-- CI Boundary -->
+  <rect class="zone" x="30" y="568" width="265" height="122" rx="12" />
+  <text class="zone-title" x="48" y="594">Ranh giới CI (GitHub Actions)</text>
+  <rect class="node" x="48" y="606" width="229" height="72" rx="8" />
+  <text class="node-title" x="62" y="628">«node» ubuntu-latest (ci.yml)</text>
+  <text class="mono" x="62" y="648">npm ci -&gt; typecheck -&gt; lint</text>
+  <text class="mono" x="62" y="666">-&gt; test (PGlite) -&gt; build</text>
+
+  <!-- Local Host Boundary -->
+  <rect class="zone" x="335" y="85" width="995" height="605" rx="14" />
+  <text class="zone-title" x="355" y="114">Ranh giới Local Host (Máy phát triển / Docker Compose) — docker-compose.yml</text>
+  <text class="sub" x="355" y="134">Biến môi trường nạp từ tệp .env ở gốc repo (mẫu từ .env.example, không commit secret thật lên Git)</text>
+
+  <!-- Docker Internal Network -->
+  <rect class="zone-net" x="355" y="150" width="955" height="395" rx="12" />
+  <text class="zone-title" x="375" y="178">Mạng Docker nội bộ (default bridge network)</text>
+
+  <!-- Container: web -->
+  <rect class="node" x="375" y="198" width="275" height="225" rx="10" />
+  <text class="node-title" x="392" y="224">«container» web</text>
+  <text class="mono" x="392" y="244">apps/web/Dockerfile (node:22-alpine)</text>
+  <rect class="inner" x="392" y="258" width="241" height="110" rx="8" />
+  <text class="node-title" x="406" y="282">Next.js App (apps/web)</text>
+  <text class="mono" x="406" y="304">PORT=3000, HOSTNAME=0.0.0.0</text>
+  <text class="mono" x="406" y="324">API_BASE_URL=http://api:4000</text>
+  <text class="item" x="406" y="348">Phục vụ SSR &amp; static assets</text>
+  <text class="mono" x="392" y="392">depends_on: api (service_healthy)</text>
+  <text class="mono" x="392" y="410">Publish: 127.0.0.1:3000-&gt;3000</text>
+
+  <!-- Container: api -->
+  <rect class="node" x="685" y="198" width="315" height="325" rx="10" />
+  <text class="node-title" x="702" y="224">«container» api</text>
+  <text class="mono" x="702" y="244">apps/api/Dockerfile (node:22-alpine)</text>
+  <rect class="inner" x="702" y="258" width="281" height="126" rx="8" />
+  <text class="node-title" x="716" y="282">NestJS API (apps/api)</text>
+  <text class="mono" x="716" y="302">API_PORT=4000, DB_HOST=db</text>
+  <text class="item" x="716" y="322">• Auth JWT, Products, Orders, Inventory</text>
+  <text class="item" x="716" y="342">• OrderExpiryJob (quét 5s/lần)</text>
+  <text class="mono" x="716" y="362">• GET /health (ping SELECT 1)</text>
+  <rect class="inner" x="702" y="394" width="281" height="62" rx="8" />
+  <text class="node-title" x="716" y="418">«component» MockPaymentGateway</text>
+  <text class="item" x="716" y="440">Mô phỏng Ví/Thẻ trong tiến trình API</text>
+  <text class="mono" x="702" y="478">Healthcheck: fetch 127.0.0.1:4000/health</text>
+  <text class="mono" x="702" y="496">Publish: 127.0.0.1:4000-&gt;4000</text>
+  <text class="mono" x="702" y="514">depends_on: db (service_healthy)</text>
+
+  <!-- Container: db -->
+  <rect class="node" x="1030" y="198" width="260" height="325" rx="10" />
+  <text class="node-title" x="1046" y="224">«container» db</text>
+  <text class="mono" x="1046" y="244">postgres:17-alpine</text>
+  <rect class="db" x="1046" y="258" width="228" height="115" rx="8" />
+  <text class="node-title" x="1060" y="282">«database» PostgreSQL</text>
+  <text class="mono" x="1060" y="304">Port: 5432 (nội bộ)</text>
+  <text class="item" x="1060" y="326">• Bảng nghiệp vụ &amp; tồn kho</text>
+  <text class="item" x="1060" y="346">• Bảng schema_migrations</text>
+  <rect class="inner" x="1046" y="386" width="228" height="70" rx="8" />
+  <text class="node-title" x="1060" y="410">«volume» brewlite_data</text>
+  <text class="mono" x="1060" y="432">/var/lib/postgresql/data</text>
+  <text class="item" x="1060" y="448">Lưu trữ bền vững qua các lần bật</text>
+  <text class="mono" x="1046" y="480">Healthcheck: pg_isready</text>
+  <text class="mono" x="1046" y="498">Publish: 127.0.0.1:5432(5433)-&gt;5432</text>
+
+  <!-- Host Tools: Cloudflared & CLI -->
+  <rect class="node" x="355" y="562" width="445" height="105" rx="10" />
+  <text class="node-title" x="372" y="588">«process» cloudflared tunnel (Tùy chọn trên máy host)</text>
+  <text class="mono" x="372" y="610">cloudflared tunnel --url http://localhost:4000</text>
+  <text class="item" x="372" y="632">Chỉ bật khi cần nhận webhook SePay thật từ internet vào máy local</text>
+  <text class="mono" x="372" y="652">Header kiểm tra: Authorization: Apikey &lt;SEPAY_WEBHOOK_API_KEY&gt;</text>
+
+  <rect class="node" x="820" y="562" width="490" height="105" rx="10" />
+  <text class="node-title" x="838" y="588">«cli» Công cụ Migration, Seed &amp; Smoke trên Host</text>
+  <text class="mono" x="838" y="610">npm run db:check | db:migrate | db:seed (apps/api/scripts/database.ts)</text>
+  <text class="item" x="838" y="632">• Khóa pg_advisory_xact_lock(22032006) + kiểm tra SHA-256</text>
+  <text class="mono" x="838" y="652">• Smoke script: node scripts/smoke.mjs (/health, /products, /orders/me)</text>
+
+  <!-- Connections -->
+  <!-- Browser to Web -->
+  <path class="conn" d="M295 215 L375 215" />
+  <text class="edge-label" x="302" y="207">HTTP :3000</text>
+
+  <!-- Browser to API (routed below web container) -->
+  <path class="conn" d="M295 255 L350 255 L350 450 L685 450" />
+  <text class="edge-label" x="450" y="442">HTTP + JWT (127.0.0.1:4000)</text>
+
+  <!-- Browser to VietQR -->
+  <path class="conn-dashed" d="M162 290 L162 368" />
+  <text class="edge-label" x="170" y="318">HTTPS GET QR</text>
+
+  <!-- Web to API -->
+  <path class="conn" d="M650 310 L685 310" />
+  <text class="edge-label" x="652" y="302">:4000</text>
+
+  <!-- API to DB -->
+  <path class="conn" d="M1000 310 L1030 310" />
+  <text class="edge-label" x="1002" y="302">:5432</text>
+
+  <!-- SePay to Cloudflared -->
+  <path class="conn-dashed" d="M277 505 L355 595" />
+  <text class="edge-label" x="282" y="542">Webhook</text>
+
+  <!-- Cloudflared to API -->
+  <path class="conn-dashed" d="M695 562 L760 523" />
+  <text class="edge-label" x="738" y="550">POST :4000</text>
+
+  <!-- CLI to DB -->
+  <path class="conn-dashed" d="M1120 562 L1120 523" />
+  <text class="edge-label" x="1128" y="548">SQL :5432</text>
+</svg>

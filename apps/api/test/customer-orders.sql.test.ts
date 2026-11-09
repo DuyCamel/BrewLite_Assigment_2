@@ -24,12 +24,10 @@ const adapter = {
 const model = new CustomerOrderModel(adapter as unknown as DatabaseService);
 
 before(async () => {
-  await pg.exec("BEGIN");
   await pg.exec(sql("001_schema.sql"));
   await pg.exec(sql("007_order_payment_codes.sql"));
-  await pg.exec(sql("002_integrity.sql"));
-  await pg.exec(sql("003_seed.sql"));
-  await pg.exec("COMMIT");
+  await pg.exec(sql("009_qr_reissue.sql"));
+  await pg.exec(sql("002_seed.sql"));
 });
 after(async () => {
   await pg.close();

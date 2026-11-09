@@ -5,14 +5,16 @@ import { PGlite } from "@electric-sql/pglite";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { after, before, test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { Module, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
-import { AppModule } from "../src/app.module";
-import { DatabaseService } from "../src/config/db";
-import { Mailer, type PasswordResetMail } from "../src/services/mailer";
-import { FORGOT_PASSWORD_MESSAGE } from "../src/services/password-reset.service";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+import { AppModule } from "../src/app.module.js";
+import { DatabaseService } from "../src/config/db.js";
+import { Mailer, type PasswordResetMail } from "../src/services/mailer.js";
+import { FORGOT_PASSWORD_MESSAGE } from "../src/services/password-reset.service.js";
 
 const SECRET = "test-secret-for-brewlite-password-reset-0123456789";
 const OLD = "Mat-khau-cu-1";
@@ -47,12 +49,7 @@ before(async () => {
   process.env.JWT_SECRET = SECRET;
   delete process.env.FRONTEND_ORIGIN;
   await pg.exec("BEGIN");
-  for (const file of [
-    "001_schema.sql",
-    "002_integrity.sql",
-    "003_seed.sql",
-    "008_password_reset.sql",
-  ])
+  for (const file of ["001_schema.sql", "002_seed.sql"])
     await pg.exec(sql(file));
   await pg.exec("COMMIT");
   const controllers = Reflect.getMetadata(

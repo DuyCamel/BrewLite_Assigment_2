@@ -26,15 +26,15 @@ export function paymentLifetimes(): {
   const orderMinutes = Number(process.env.ORDER_TTL_MINUTES ?? "15");
   const qrMinutes = Number(process.env.QR_TTL_MINUTES ?? "5");
   if (
-    !Number.isSafeInteger(qrMinutes) ||
-    qrMinutes < 1 ||
+    !Number.isFinite(qrMinutes) ||
+    qrMinutes < 0.5 ||
     qrMinutes > 1440 ||
-    !Number.isSafeInteger(orderMinutes) ||
+    !Number.isFinite(orderMinutes) ||
     orderMinutes < 2 * qrMinutes ||
     orderMinutes > 10080
   ) {
     throw new ConfigurationError(
-      "ORDER_TTL_MINUTES phải ít nhất gấp đôi QR_TTL_MINUTES; cả hai phải là số phút nguyên dương hợp lệ",
+      "ORDER_TTL_MINUTES phải ít nhất gấp đôi QR_TTL_MINUTES; thời gian QR tối thiểu 0.5 phút và cả hai phải là số phút hợp lệ",
     );
   }
   return { orderMinutes, qrMinutes };

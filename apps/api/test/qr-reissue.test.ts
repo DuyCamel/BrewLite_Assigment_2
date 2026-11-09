@@ -33,6 +33,11 @@ test("order lifetime must be at least twice QR lifetime", () => {
     process.env.ORDER_TTL_MINUTES = "2";
     process.env.QR_TTL_MINUTES = "1";
     assert.deepEqual(paymentLifetimes(), { orderMinutes: 2, qrMinutes: 1 });
+    process.env.ORDER_TTL_MINUTES = "1";
+    process.env.QR_TTL_MINUTES = "0.5";
+    assert.deepEqual(paymentLifetimes(), { orderMinutes: 1, qrMinutes: 0.5 });
+    process.env.QR_TTL_MINUTES = "0.49";
+    assert.throws(() => paymentLifetimes(), ConfigurationError);
   } finally {
     if (previousOrder === undefined) delete process.env.ORDER_TTL_MINUTES;
     else process.env.ORDER_TTL_MINUTES = previousOrder;
@@ -44,7 +49,11 @@ test("order lifetime must be at least twice QR lifetime", () => {
 test("QR chi duoc cap lai mot lan; ma cu bi tu choi, het luot hai thi huy va hoan ton", async () => {
   const pg = new PGlite();
   const previousKey = process.env.SEPAY_WEBHOOK_API_KEY;
+  const previousOrder = process.env.ORDER_TTL_MINUTES;
+  const previousQr = process.env.QR_TTL_MINUTES;
   process.env.SEPAY_WEBHOOK_API_KEY = "test-webhook-key";
+  process.env.ORDER_TTL_MINUTES = "1";
+  process.env.QR_TTL_MINUTES = "0.5";
   try {
     for (const name of [
       "001_schema.sql",
@@ -101,14 +110,17 @@ test("QR chi duoc cap lai mot lan; ma cu bi tu choi, het luot hai thi huy va hoa
       await pg.query<{
         payment_code: string;
         qr_attempts: number;
+        created_at: string;
         expires_at: string;
         qr_expires_at: string;
       }>(
-        "SELECT payment_code, qr_attempts, expires_at, qr_expires_at FROM orders WHERE id = $1",
+        "SELECT payment_code, qr_attempts, created_at, expires_at, qr_expires_at FROM orders WHERE id = $1",
         [created.orderId],
       )
     ).rows[0];
     assert.equal(before.qr_attempts, 1);
+    assert.equal(new Date(before.expires_at).getTime() - new Date(before.created_at).getTime(), 60_000);
+    assert.equal(new Date(before.qr_expires_at).getTime() - new Date(before.created_at).getTime(), 30_000);
     assert.ok(
       new Date(before.expires_at).getTime() >
         new Date(before.qr_expires_at).getTime(),
@@ -272,6 +284,10 @@ test("QR chi duoc cap lai mot lan; ma cu bi tu choi, het luot hai thi huy va hoa
   } finally {
     if (previousKey === undefined) delete process.env.SEPAY_WEBHOOK_API_KEY;
     else process.env.SEPAY_WEBHOOK_API_KEY = previousKey;
+    if (previousOrder === undefined) delete process.env.ORDER_TTL_MINUTES;
+    else process.env.ORDER_TTL_MINUTES = previousOrder;
+    if (previousQr === undefined) delete process.env.QR_TTL_MINUTES;
+    else process.env.QR_TTL_MINUTES = previousQr;
     await pg.close();
   }
 });

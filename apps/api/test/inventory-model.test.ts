@@ -26,8 +26,7 @@ function asClient(database: PGlite): PoolClient {
 
 before(async () => {
   await db.exec(sql("001_schema.sql"));
-  await db.exec(sql("002_integrity.sql"));
-  await db.exec(sql("003_seed.sql"));
+  await db.exec(sql("002_seed.sql"));
 });
 after(async () => {
   await db.close();

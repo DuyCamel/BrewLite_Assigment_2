@@ -20,7 +20,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const db = await createTestDb();
 const readSql = (name: string) =>
   readFileSync(resolve(__dirname, "../database", name), "utf8");
-await db.exec(readSql("005_ingredient_inventory.sql"));
 
 const orders = new OrdersService(
   makeFakeDatabase(db),

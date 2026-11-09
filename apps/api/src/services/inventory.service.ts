@@ -16,6 +16,10 @@ export class InventoryService {
   ) {}
 
   // Gộp số lượng theo productId rồi trừ kho; thiếu hàng/tranh tồn thì ném lỗi để transaction rollback.
+  // LƯU Ý TV4: nhánh nguyên liệu (InventoryModel.reserveIngredients, do người khác thêm) chỉ trừ cho món có công thức.
+  // Đặt riêng món chưa có công thức (4 món matcha theo tài liệu: matcha-dau, matcha-dua, matcha-kem, matcha-yen-mach)
+  // thì bị 409, nhưng đặt CHUNG với món khác thì món thiếu công thức không bị trừ gì. Chờ nhóm chốt cách xử lý
+  // (test todo trong test/ingredient-flow.test.ts mô tả hành vi mong muốn).
   async reserveStock(
     items: Array<StockItem | OrderLine>,
     transaction: PoolClient,

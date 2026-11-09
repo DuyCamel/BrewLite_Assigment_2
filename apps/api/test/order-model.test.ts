@@ -99,7 +99,7 @@ test("insertOrder + insertOrderItems commit được qua trigger 002", async () 
   assert.equal(row.discount, 0);
   assert.equal(row.total, UNIT_S);
   const remaining = new Date(row.expiresAt).getTime() - Date.now();
-  assert.ok(remaining > 4 * 60_000 && remaining <= 5 * 60_000);
+  assert.ok(remaining > 14 * 60_000 && remaining <= 15 * 60_000);
 
   const items = await db.query<{ n: number }>(
     "SELECT count(*)::int AS n FROM order_items WHERE order_id = $1",
@@ -283,7 +283,7 @@ test("reopenForRetry đưa PAYMENT_FAILED về PENDING qua trigger 002", async (
   assert.equal(row.rows[0].status, "PENDING");
   assert.equal(row.rows[0].stock_released, false);
   assert.equal(row.rows[0].future, true);
-  assert.ok(Number(row.rows[0].seconds_left) > 240 && Number(row.rows[0].seconds_left) <= 300);
+  assert.ok(Number(row.rows[0].seconds_left) > 840 && Number(row.rows[0].seconds_left) <= 900);
 
   // đã là PENDING nên lần hai không đổi được
   assert.equal(await tx((c) => model.reopenForRetry("m-8", c)), false);

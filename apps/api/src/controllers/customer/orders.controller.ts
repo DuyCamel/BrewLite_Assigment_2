@@ -38,7 +38,9 @@ function parseCreateOrderInput(body: unknown): CreateOrderInput {
       !Array.isArray(line.toppingIds) ||
       !line.toppingIds.every((id) => typeof id === "string") ||
       typeof line.quantity !== "number" ||
-      !Number.isInteger(line.quantity)
+      !Number.isInteger(line.quantity) ||
+      line.quantity < 1 ||
+      line.quantity > 99
     ) {
       throw new BadRequestException(
         "Thông tin món trong đơn hàng không hợp lệ",
@@ -69,7 +71,7 @@ function parseCreateOrderInput(body: unknown): CreateOrderInput {
 
 function currentUserId(request: AuthenticatedRequest): string {
   const id = request.user?.id;
-  if (!id) throw new UnauthorizedException();
+  if (typeof id !== "string" || id.trim() === "") throw new UnauthorizedException();
   return id;
 }
 
@@ -94,7 +96,9 @@ export class OrdersController {
       typeof body !== "object" ||
       body === null ||
       typeof (body as Record<string, unknown>).code !== "string" ||
-      typeof (body as Record<string, unknown>).subtotal !== "number"
+      typeof (body as Record<string, unknown>).subtotal !== "number" ||
+      !Number.isInteger((body as Record<string, unknown>).subtotal) ||
+      ((body as Record<string, unknown>).subtotal as number) < 0
     ) {
       throw new BadRequestException("Thông tin mã khuyến mãi không hợp lệ");
     }

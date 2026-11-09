@@ -1,0 +1,244 @@
+# TV6 — Continuous Delivery: push main / tag vX.Y.Z → Quality gate → Build Docker image → Push GHCR → Deploy VPS → Smoke test → Rollback nếu lỗi.
+# Nền tảng: VPS chạy Docker Compose + Caddy (HTTPS), registry GHCR. Hướng dẫn cấu hình secret/variable: docs/deployment.md.
+# Secret cần có (Settings → Secrets and variables → Actions, tab Secrets, đặt ở cấp REPOSITORY để job nào cũng đọc được):
+#   DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS (kết quả ssh-keyscan của VPS), DEPLOY_PATH (thư mục trên VPS)
+#   SMOKE_EMAIL, SMOKE_PASSWORD (tùy chọn: tài khoản thử riêng cho smoke test)
+# Variable cần có (tab Variables, cấp repository): PUBLIC_API_URL (https://api...), PUBLIC_WEB_URL (https://...).
+# Variable tùy chọn: NEXT_PUBLIC_VIETQR_BANK_ID, NEXT_PUBLIC_VIETQR_ACCOUNT_NO, NEXT_PUBLIC_VIETQR_ACCOUNT_NAME
+#   (tài khoản nhận tiền để web hiện mã QR; không phải secret, được nhúng vào bundle web lúc build).
+name: CD
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: cd-production
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  images:
+    name: Build và push Docker image
+    needs: quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      owner: ${{ steps.vars.outputs.owner }}
+      tag: ${{ steps.vars.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Chuẩn bị tên và tag image
+        id: vars
+        env:
+          PUBLIC_API_URL: ${{ vars.PUBLIC_API_URL }}
+        run: |
+          if [ -z "$PUBLIC_API_URL" ]; then
+            echo "::error::Thiếu variable PUBLIC_API_URL (URL HTTPS công khai của API, được nhúng vào bundle web lúc build)"
+            exit 1
+          fi
+          echo "owner=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+          echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta-api
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ steps.vars.outputs.owner }}/brewlite-api
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=semver,pattern={{version}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: ${{ steps.meta-api.outputs.tags }}
+          labels: ${{ steps.meta-api.outputs.labels }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+      - id: meta-web
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ steps.vars.outputs.owner }}/brewlite-web
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=semver,pattern={{version}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          # NEXT_PUBLIC_* được nhúng vào bundle lúc build (apps/web/Dockerfile phải khai báo ARG tương ứng, xem docs/deployment.md mục 3).
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ vars.PUBLIC_API_URL }}
+            NEXT_PUBLIC_VIETQR_BANK_ID=${{ vars.NEXT_PUBLIC_VIETQR_BANK_ID }}
+            NEXT_PUBLIC_VIETQR_ACCOUNT_NO=${{ vars.NEXT_PUBLIC_VIETQR_ACCOUNT_NO }}
+            NEXT_PUBLIC_VIETQR_ACCOUNT_NAME=${{ vars.NEXT_PUBLIC_VIETQR_ACCOUNT_NAME }}
+          tags: ${{ steps.meta-web.outputs.tags }}
+          labels: ${{ steps.meta-web.outputs.labels }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+      # Image chỉ để chạy migration (stage builder của apps/api/Dockerfile: có tsx và file SQL; image api production không có).
+      - id: meta-migrate
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ steps.vars.outputs.owner }}/brewlite-migrate
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=semver,pattern={{version}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          target: builder
+          push: true
+          tags: ${{ steps.meta-migrate.outputs.tags }}
+          labels: ${{ steps.meta-migrate.outputs.labels }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=migrate,mode=max
+
+  deploy:
+    name: Deploy lên VPS
+    needs: images
+    runs-on: ubuntu-latest
+    environment: production
+    # permissions ở mức workflow chỉ có contents:read, nên phải khai báo thêm packages:read để GITHUB_TOKEN pull được image GHCR trên VPS.
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Chuẩn bị SSH (khóa lấy từ secret, không in ra log)
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Gửi file cấu hình lên VPS
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          scp -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes \
+            docker-compose.prod.yml deploy/Caddyfile deploy/deploy.sh \
+            "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+      - name: Deploy (pull → sao lưu DB → migrate → đổi api/web → health)
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.images.outputs.tag }}
+        run: |
+          # Token đi qua stdin, không nằm trong dòng lệnh hay log.
+          printf '%s' "$GHCR_TOKEN" | ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && docker login ghcr.io -u '$GHCR_USER' --password-stdin >/dev/null && sh deploy.sh deploy '$TAG'"
+
+  smoke:
+    name: Smoke test trên URL thật
+    needs: [images, deploy]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Chờ API sẵn sàng
+        env:
+          SMOKE_API_URL: ${{ vars.PUBLIC_API_URL }}
+        run: curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-connrefused --retry-all-errors "$SMOKE_API_URL/health"
+      - name: scripts/smoke.mjs
+        env:
+          SMOKE_API_URL: ${{ vars.PUBLIC_API_URL }}
+          SMOKE_WEB_URL: ${{ vars.PUBLIC_WEB_URL }}
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+        run: node scripts/smoke.mjs
+
+  rollback:
+    name: Rollback khi smoke test lỗi
+    needs: [images, deploy, smoke]
+    if: ${{ always() && needs.deploy.result == 'success' && needs.smoke.result == 'failure' }}
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Chuẩn bị SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Quay về bản chạy tốt trước đó
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && docker login ghcr.io -u '$GHCR_USER' --password-stdin >/dev/null && sh deploy.sh rollback"
+      - name: Smoke test lại sau rollback
+        id: resmoke
+        continue-on-error: true
+        env:
+          SMOKE_API_URL: ${{ vars.PUBLIC_API_URL }}
+          SMOKE_WEB_URL: ${{ vars.PUBLIC_WEB_URL }}
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+        run: node scripts/smoke.mjs
+      - name: Tạo issue cảnh báo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESMOKE: ${{ steps.resmoke.outcome }}
+        run: |
+          gh issue create \
+            --title "Deploy ${GITHUB_SHA::7} lỗi smoke test, đã rollback" \
+            --body "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}. Smoke sau rollback: ${RESMOKE}. Xem docs/deployment.md để xử lý."
+      - name: Đánh dấu pipeline thất bại
+        run: |
+          echo "::error::Smoke test lỗi sau deploy; đã rollback về bản trước."
+          exit 1

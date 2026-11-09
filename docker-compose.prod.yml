@@ -1,0 +1,107 @@
+# TV6 — Compose cho PRODUCTION trên VPS (image lấy từ GHCR do .github/workflows/cd.yml build). KHÔNG dùng để chạy local
+# (local dùng docker-compose.yml của TV1). Chạy qua deploy/deploy.sh; secret nằm ở .env.prod trên VPS (không commit).
+# Chỉ Caddy mở cổng 80/443 ra internet. db, api, web không publish cổng: chỉ nói chuyện với nhau trong mạng "brewlite".
+name: brewlite
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-brewlite}
+      POSTGRES_USER: ${DB_USER:-brewlite}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Thieu DB_PASSWORD trong .env.prod}
+    volumes:
+      - brewlite_data:/var/lib/postgresql/data
+    networks: [brewlite]
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    image: ghcr.io/${IMAGE_OWNER:?Thieu IMAGE_OWNER}/brewlite-api:${IMAGE_TAG:?Thieu IMAGE_TAG}
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      API_PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      PRODUCT_DATA_SOURCE: postgres
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [brewlite]
+    logging: *default-logging
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+
+  web:
+    image: ghcr.io/${IMAGE_OWNER:?Thieu IMAGE_OWNER}/brewlite-web:${IMAGE_TAG:?Thieu IMAGE_TAG}
+    restart: unless-stopped
+    environment:
+      API_BASE_URL: http://api:4000
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [brewlite]
+    logging: *default-logging
+
+  # Chạy một lần mỗi lần deploy: docker compose --profile tools run --rm migrate (image có tsx + file SQL).
+  migrate:
+    image: ghcr.io/${IMAGE_OWNER:?Thieu IMAGE_OWNER}/brewlite-migrate:${IMAGE_TAG:?Thieu IMAGE_TAG}
+    profiles: ["tools"]
+    env_file: .env.prod
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+    command: ["npm", "run", "db:migrate", "-w", "apps/api"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [brewlite]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      WEB_DOMAIN: ${WEB_DOMAIN:?Thieu WEB_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN:?Thieu API_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+    networks: [brewlite]
+    logging: *default-logging
+
+networks:
+  brewlite:
+
+volumes:
+  brewlite_data:
+  caddy_data:
+  caddy_config:

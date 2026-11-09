@@ -1,0 +1,72 @@
+// TV6 — UML Deployment diagram BrewLite (production thực tế: VPS + Docker Compose + Caddy, image ở GHCR, CI/CD bằng GitHub Actions).
+// Kết xuất:  dot -Tsvg deployment.dot -o deployment.svg   và   dot -Tpng -Gdpi=160 deployment.dot -o deployment.png
+// Truy vết: web/api/migrate ↔ apps/web, apps/api, apps/web/Dockerfile, apps/api/Dockerfile; Compose ↔ docker-compose.yml (local), docker-compose.prod.yml (production);
+// CI ↔ .github/workflows/ci.yml; CD ↔ .github/workflows/cd.yml, rollback.yml; smoke ↔ scripts/smoke.mjs; deploy ↔ deploy/deploy.sh.
+digraph Deployment {
+  graph [rankdir=TB, fontname="DejaVu Sans", fontsize=20, labelloc=t, pad=0.3, nodesep=0.45, ranksep=0.75, compound=true, splines=true,
+         label="BrewLite — Deployment diagram (Production, CI/CD và Local)"];
+  node  [fontname="DejaVu Sans", fontsize=12, shape=box, style="filled", fillcolor="#ffffff", color="#444444", margin="0.15,0.1"];
+  edge  [fontname="DejaVu Sans", fontsize=10.5, color="#333333", arrowsize=0.8];
+
+  // ───────── Người dùng và dịch vụ ngoài ─────────
+  subgraph cluster_user {
+    label="Thiết bị người dùng"; style="rounded,filled"; fillcolor="#f4f4f4"; color="#888888"; fontsize=13;
+    browser [shape=box3d, fillcolor="#e8f1fb", label="Điện thoại / máy tính\nTrình duyệt (Next.js PWA, mobile-first)\nGiỏ hàng + phiên đăng nhập: localStorage"];
+  }
+  subgraph cluster_ext {
+    label="Dịch vụ bên ngoài"; style="rounded,filled"; fillcolor="#f4f4f4"; color="#888888"; fontsize=13;
+    sepay [shape=component, fillcolor="#fff4e0", label="SePay (thanh toán chuyển khoản)\ngọi webhook khi tiền về"];
+    vietqr [shape=component, fillcolor="#fff4e0", label="vietqr.app\nảnh mã QR VietQR"];
+    dns [shape=component, fillcolor="#fff4e0", label="DNS + Let's Encrypt\nbản ghi A → IP VPS, cấp chứng chỉ HTTPS"];
+  }
+
+  // ───────── Production ─────────
+  subgraph cluster_prod {
+    label="PRODUCTION — VPS Linux (firewall chỉ mở 22, 80, 443)  ·  Docker Compose: docker-compose.prod.yml, mạng nội bộ \"brewlite\""; style="rounded,filled"; fillcolor="#eaf6ea"; color="#2e7d32"; fontsize=13;
+    caddy [shape=box3d, fillcolor="#d7efd7", label="«container» caddy:2-alpine\nCổng 80, 443 (công khai)\nHTTPS, reverse proxy\nWEB_DOMAIN → web · API_DOMAIN → api\n./Caddyfile"];
+    web [shape=box3d, fillcolor="#d7efd7", label="«container» brewlite-web\nNext.js (apps/web/Dockerfile)\nCổng 3000 (nội bộ, không publish)\nAPI_BASE_URL=http://api:4000"];
+    api [shape=box3d, fillcolor="#d7efd7", label="«container» brewlite-api\nNestJS (apps/api/Dockerfile)\nCổng 4000 (nội bộ, không publish)\nGET /health · webhook /webhooks/sepay\nNODE_ENV=production"];
+    db [shape=cylinder, fillcolor="#d7efd7", label="«container» postgres:17-alpine\nCổng 5432 (nội bộ, KHÔNG publish)\nvolume bền vững: brewlite_data"];
+    migrate [shape=box3d, fillcolor="#e6f3e6", style="filled,dashed", label="«job» brewlite-migrate\nchạy một lần mỗi lần deploy\nnpm run db:migrate (chỉ thêm)"];
+    envfile [shape=note, fillcolor="#fffbe0", label=".env.prod trên VPS (không commit)\nJWT_SECRET, DB_PASSWORD,\nSEPAY_WEBHOOK_API_KEY, FRONTEND_ORIGIN"];
+    state [shape=note, fillcolor="#fffbe0", label="deploy.sh · .state/current_tag, previous_tag\nbackups/pre-<tag>.sql.gz (giữ 5 bản)\nLog: docker logs (json-file, xoay vòng 10MB×3)"];
+  }
+
+  // ───────── CI/CD ─────────
+  subgraph cluster_ci {
+    label="CI/CD — GitHub"; style="rounded,filled"; fillcolor="#eaf0fb"; color="#1565c0"; fontsize=13;
+    repo [shape=folder, fillcolor="#d6e4fa", label="GitHub repository\nnhánh main (branch protection) · tag vX.Y.Z"];
+    runner [shape=box3d, fillcolor="#d6e4fa", label="GitHub Actions runner (ubuntu-latest)\nci.yml: npm ci → typecheck → lint → test → build\ncd.yml: quality → build image → push → deploy → smoke → rollback\nscripts/smoke.mjs trên URL thật"];
+    ghcr [shape=component, fillcolor="#d6e4fa", label="Container registry GHCR\nbrewlite-api · brewlite-web · brewlite-migrate\ntag: sha-<7 ký tự> và semver"];
+    secrets [shape=note, fillcolor="#fffbe0", label="Secrets / Variables (không nằm trong repo)\nDEPLOY_HOST · USER · SSH_KEY · KNOWN_HOSTS · PATH\nPUBLIC_API_URL · PUBLIC_WEB_URL · NEXT_PUBLIC_VIETQR_* (Variables)"];
+  }
+
+  // ───────── Local ─────────
+  subgraph cluster_local {
+    label="LOCAL — máy lập trình viên (docker compose up --build, docker-compose.yml)"; style="rounded,filled"; fillcolor="#fdf0f0"; color="#c62828"; fontsize=13;
+    local [shape=box3d, fillcolor="#f9dede", label="web :3000 · api :4000 · db :5432\nchỉ bind 127.0.0.1\n.env từ .env.example (secret mẫu, không dùng cho production)"];
+  }
+
+  // ───────── Luồng chạy (runtime) ─────────
+  browser -> dns [label="phân giải tên miền", style=dashed];
+  browser -> caddy [label="HTTPS 443\n(trang web + gọi API)", color="#2e7d32", penwidth=1.6];
+  browser -> vietqr [label="HTTPS: tải ảnh QR", style=dashed];
+  sepay -> caddy [label="HTTPS POST /webhooks/sepay\nAuthorization: Apikey", color="#e65100"];
+  caddy -> web [label="HTTP 3000"];
+  caddy -> api [label="HTTP 4000"];
+  web -> api [label="HTTP 4000 (SSR)"];
+  api -> db [label="TCP 5432\nDB_HOST=db"];
+  migrate -> db [label="TCP 5432", style=dashed];
+  envfile -> api [style=dotted, arrowhead=none];
+
+  // ───────── Luồng phát hành ─────────
+  repo -> runner [label="push main / tag\n(PR chạy CI)", color="#1565c0"];
+  runner -> ghcr [label="docker push (HTTPS)", color="#1565c0"];
+  runner -> state [label="SSH 22: scp + deploy.sh\n(khóa trong Secrets)", color="#1565c0", constraint=false];
+  ghcr -> web [label="docker pull khi deploy", color="#1565c0", style=dashed, constraint=false];
+  runner -> api [label="smoke: GET /health, /products\n(HTTPS công khai)", color="#1565c0", style=dashed, constraint=false];
+  secrets -> runner [style=dotted, arrowhead=none];
+
+  // ───────── Local ─────────
+  repo -> local [label="git clone / pull", style=dashed, color="#c62828", constraint=false];
+}

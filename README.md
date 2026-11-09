@@ -26,7 +26,8 @@ BrewLite hỗ trợ khách hàng đặt đồ uống và thanh toán không dùn
 | CI | Có `.github/workflows/ci.yml`; cần minh chứng PR CI xanh/đỏ và required checks |
 | Tài liệu Task 1–3 theo cấu trúc đề | Chưa thấy đầy đủ trong `docs/requirements`, `docs/diagrams`, `docs/architecture` |
 | `.env.example`, issue board/backlog, traceability matrix | Cần bổ sung/kiểm chứng |
-| E2E thực thi, CD, production HTTPS, release, rollback | Chưa có minh chứng hoàn thành |
+| E2E (Playwright), CD (`cd.yml`), rollback, smoke test | Đã có file; **chưa có minh chứng chạy thật** trên Docker/VPS |
+| Production HTTPS, release `v1.0.0` | Chưa có minh chứng hoàn thành (cần VPS, tên miền, secret; xem `docs/deployment.md`) |
 
 **Quy tắc:** Có file hoặc code không đồng nghĩa đã đạt tiêu chí nghiệm thu. Các trạng thái trên không thay cho kết quả chạy test hoặc deployment.
 
@@ -40,11 +41,17 @@ BrewLite_Assigment_2/
 ├── docs/                       # Tài liệu nhóm hiện có; cần bổ sung Task 1–3
 │   └── PHAN_CONG.md            # Bản phân công hoàn thiện Assignment 2
 ├── tests/
-│   └── e2e/                    # Hiện có file .todo; cần E2E chạy được
+│   └── e2e/                    # E2E Playwright (checkout.spec.ts)
 ├── .github/workflows/
-│   └── ci.yml                  # CI; CD chưa bổ sung
-├── docker-compose.yml
-├── .env_vidu                   # Mẫu env hiện có; cần chuẩn hóa .env.example
+│   ├── ci.yml                  # CI (lint, test, build)
+│   ├── cd.yml                  # CD: image → GHCR → deploy VPS → smoke → rollback
+│   ├── rollback.yml            # Rollback thủ công
+│   └── e2e.yml                 # E2E trên Docker (chạy tay)
+├── deploy/                     # Caddyfile, deploy.sh, env.prod.example (production VPS)
+├── scripts/                    # smoke.mjs (smoke test sau deploy), simulate-sepay.mjs
+├── docker-compose.yml          # Local
+├── docker-compose.prod.yml     # Production (VPS)
+├── .env.example                # Mẫu biến môi trường (không chứa secret thật)
 ├── package.json
 ├── package-lock.json
 └── README.md
@@ -72,15 +79,15 @@ Tạo file môi trường tại **gốc repo**:
 
 ```powershell
 # Windows PowerShell
-Copy-Item .env_vidu .env
+Copy-Item .env.example .env
 ```
 
 ```bash
 # macOS/Linux
-cp .env_vidu .env
+cp .env.example .env
 ```
 
-Chỉnh `.env` theo database local, `JWT_SECRET` an toàn và các cấu hình thực sự sử dụng. Đề yêu cầu `.env.example`; hiện repository sử dụng `.env_vidu`, nên nhóm phải bổ sung file tên chuẩn mà không đưa secret thật lên Git.
+Chỉnh `.env` theo database local, đặt `JWT_SECRET` riêng (từ 32 ký tự) và các cấu hình thực sự sử dụng. `.env` đã nằm trong `.gitignore`; không đưa secret thật lên Git.
 
 ### Chạy PostgreSQL + ứng dụng bằng npm
 
@@ -152,6 +159,20 @@ npm run dev -w apps/web
 ```
 
 CI theo **Task 4.4** phải tự chạy khi mở Pull Request: **Install → Lint → Unit Test → Build**. Bắt buộc bật branch protection/required checks để không merge khi lint, test hoặc build lỗi. Cần lưu link PR, một log chạy thành công và một log phát hiện lỗi.
+
+## 5b. Triển khai production, smoke test và rollback
+
+Nền tảng: một VPS Linux chạy Docker Compose, HTTPS bằng Caddy, image ở GitHub Container Registry, CI/CD bằng GitHub Actions. Hướng dẫn đầy đủ (chuẩn bị VPS, secret, deploy, rollback, release) ở [`docs/deployment.md`](docs/deployment.md).
+
+```bash
+# Smoke test một môi trường đang chạy (chỉ đọc dữ liệu)
+SMOKE_API_URL=https://<api> SMOKE_WEB_URL=https://<web> node scripts/smoke.mjs
+
+# Rollback thủ công: GitHub → Actions → Rollback → nhập tag (bỏ trống = bản trước), hoặc trên VPS:
+sh deploy.sh rollback <tag>
+```
+
+Rollback chỉ đổi image, **không hoàn tác migration**; migration chỉ thêm để bản cũ vẫn chạy được. DB được sao lưu bằng `pg_dump` trước mỗi lần deploy (giữ 5 bản).
 
 ## 6. Yêu cầu Assignment 2 và đầu ra cần bàn giao
 

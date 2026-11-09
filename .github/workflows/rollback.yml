@@ -1,0 +1,55 @@
+# TV6 — Rollback thủ công: chạy từ tab Actions → "Rollback" → nhập tag image muốn quay về (ví dụ sha-1a2b3c4 hoặc 1.0.0).
+# Bỏ trống tag = quay về bản chạy tốt trước đó (VPS lưu ở .state/previous_tag). Chỉ đổi image; KHÔNG hoàn tác migration.
+name: Rollback
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag image cần quay về (bỏ trống = bản trước đó)"
+        required: false
+        default: ""
+permissions:
+  contents: read
+concurrency:
+  group: cd-production
+  cancel-in-progress: false
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: production
+    # Cần packages:read để VPS pull lại image cũ từ GHCR bằng GITHUB_TOKEN.
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Chuẩn bị SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Rollback
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && docker login ghcr.io -u '$GHCR_USER' --password-stdin >/dev/null && sh deploy.sh rollback '$TAG'"
+      - name: Smoke test
+        env:
+          SMOKE_API_URL: ${{ vars.PUBLIC_API_URL }}
+          SMOKE_WEB_URL: ${{ vars.PUBLIC_WEB_URL }}
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+        run: node scripts/smoke.mjs

@@ -13,11 +13,34 @@ import { CartStore } from "@/features/cart/cart.store";
 import { FailureBlock, LoadingBlock } from "@/components/orders/OrderBlocks";
 import "@/components/orders/orders.css";
 
+// Mỗi đơn chỉ xóa giỏ MỘT lần: nếu khách mở lại trang kết quả của đơn cũ (nút Back, mở lại liên kết) sau khi đã bắt đầu giỏ mới,
+// giỏ mới không bị xóa nhầm. Danh sách mã đơn đã xử lý lưu ở localStorage (giữ tối đa 20 mã gần nhất).
+const CLEARED_ORDERS_KEY = "brewlite.cleared-orders";
+
+function readClearedOrders(): string[] {
+  try {
+    const parsed: unknown = JSON.parse(
+      window.localStorage.getItem(CLEARED_ORDERS_KEY) ?? "[]",
+    );
+    return Array.isArray(parsed)
+      ? parsed.filter((id): id is string => typeof id === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 // Chỉ gọi khi kết quả chính thức là PAID. CartStore (TV2) lưu giỏ ở localStorage và tự báo cho header cập nhật,
 // nên dùng instance mới vẫn xóa đúng giỏ. Lỗi chỉ ghi log, không làm hỏng trang kết quả.
-function clearCartAfterPayment() {
+function clearCartAfterPayment(orderId: string) {
   try {
+    const cleared = readClearedOrders();
+    if (cleared.includes(orderId)) return;
     new CartStore().clearAfterPayment();
+    window.localStorage.setItem(
+      CLEARED_ORDERS_KEY,
+      JSON.stringify([...cleared, orderId].slice(-20)),
+    );
   } catch (error) {
     console.warn("Chưa xóa được giỏ hàng sau thanh toán:", error);
   }
@@ -40,11 +63,11 @@ function PaymentStatusContent() {
 
   const paid = state.kind === "ready" && state.outcome === "SUCCESS";
   useEffect(() => {
-    if (paid && !cleared.current) {
+    if (paid && orderId && !cleared.current) {
       cleared.current = true;
-      clearCartAfterPayment();
+      clearCartAfterPayment(orderId);
     }
-  }, [paid]);
+  }, [paid, orderId]);
 
   if (!orderId) {
     return (

@@ -1,0 +1,11 @@
+# TV6 — Caddy tự cấp và gia hạn chứng chỉ HTTPS (Let's Encrypt) cho hai tên miền trong .env.prod.
+# Trước khi deploy: trỏ bản ghi DNS A của WEB_DOMAIN và API_DOMAIN về IP của VPS, mở cổng 80 và 443.
+{$WEB_DOMAIN} {
+	encode gzip zstd
+	reverse_proxy web:3000
+}
+
+{$API_DOMAIN} {
+	encode gzip zstd
+	reverse_proxy api:4000
+}

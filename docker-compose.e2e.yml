@@ -1,0 +1,8 @@
+# TV6 — Chỉ dùng cho E2E: truyền SEPAY_WEBHOOK_API_KEY vào API để test giả lập "tiền về".
+# Dùng chung với docker-compose.yml của TV1:
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d --build
+# Nếu TV1 đã thêm biến này vào docker-compose.yml thì file này vô hại.
+services:
+  api:
+    environment:
+      SEPAY_WEBHOOK_API_KEY: ${SEPAY_WEBHOOK_API_KEY:?Hay dat SEPAY_WEBHOOK_API_KEY trong .env}

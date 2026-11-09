@@ -11,8 +11,8 @@
 | Frontend gửi token đăng nhập khi gọi `/orders/*`                 | Xong (đọc phiên của TV3)                                                     | `apps/web/src/lib/client-api.ts`                                 |
 | Smoke test sau deploy                                            | Xong                                                                         | `scripts/smoke.mjs`, chạy bằng `node scripts/smoke.mjs`          |
 | Nút hủy đơn gọi API TV4                                          | Đã nối `POST /orders/:id/cancel`; cần E2E xác minh trên môi trường chạy thật | `OrderDetailView.tsx`                                            |
-| E2E toàn luồng (menu → giỏ → đăng nhập → thanh toán → PAID)      | Chưa làm được: thanh toán TV5 vẫn là khung 501                               | `tests/e2e/checkout.spec.todo.ts`                                |
-| Workflow CD (image, registry, deploy, rollback)                  | Chưa làm: nhóm chưa chốt nơi hosting                                         | xem mục 3                                                        |
+| E2E toàn luồng (menu → giỏ → đăng nhập → thanh toán → PAID) | Đã viết bằng Playwright, **chưa chạy được** trong môi trường soạn (không có Docker/mạng); cần chạy trên Docker thật | `tests/e2e/checkout.spec.ts`, `playwright.config.ts`, `.github/workflows/e2e.yml` |
+| Workflow CD (image, registry, deploy, smoke, rollback) | Đã viết cho VPS + Docker Compose + GHCR; **chưa chạy thật** (chưa có VPS và secret) | `.github/workflows/cd.yml`, `rollback.yml`, `docker-compose.prod.yml`, `deploy/`, `docs/deployment.md` |
 
 ## 2. Smoke test sau deploy
 
@@ -34,14 +34,16 @@ Các bước kiểm tra: `/health` phải là `database: "up"` (sample mode bị
 
 Chạy thử local sau `npm run dev` (không đặt biến thì mặc định `localhost:4000` và `localhost:3000`): `node scripts/smoke.mjs`. Ở máy local mật khẩu mẫu của seed nằm trong `apps/api/database/README.md`.
 
-## 3. Checklist deploy và rollback (chưa phụ thuộc nhà cung cấp hosting)
+## 3. Checklist deploy và rollback
+
+Nền tảng đã chọn và hướng dẫn đầy đủ: [`docs/deployment.md`](deployment.md) (VPS, Docker Compose, Caddy, GHCR, GitHub Actions). Checklist chung bên dưới vẫn đúng với mọi nhà cung cấp.
 
 Trước khi deploy:
 
 1. CI xanh trên `main` (job `check`).
 2. Có secret production riêng, không commit: `JWT_SECRET` (ngẫu nhiên, 32 ký tự trở lên, không chứa `local_only` hay `replace_`), `DB_PASSWORD`, `DB_USER`, `DB_NAME`, `DB_HOST`, `FRONTEND_ORIGIN` (đúng URL web production, không dùng `*`).
 3. Khi build web, đặt `NEXT_PUBLIC_API_BASE_URL` là URL API công khai. Biến này được nhúng vào bundle lúc build, nên đổi URL phải build lại web. Không đặt secret vào biến `NEXT_PUBLIC_*`.
-4. Chạy migration trước khi chuyển lưu lượng: `npm run db:migrate`. Không sửa đè `001` và `002` đã áp dụng; thay đổi schema dùng migration mới từ `004`.
+4. Chạy migration trước khi chuyển lưu lượng: `npm run db:migrate`. Không sửa đè `001` và `002` đã áp dụng; thay đổi schema dùng migration mới từ `010` (và thêm tên file vào danh sách trong `apps/api/scripts/database.ts`).
 5. Dùng HTTPS cho cả web và API (token đăng nhập gửi qua header `Authorization`).
 
 Sau deploy: chạy smoke test ở mục 2. Có bước lỗi thì rollback.
@@ -50,11 +52,14 @@ Rollback: giữ lại image và tag của bản chạy tốt trước đó, khi 
 
 Khi nhóm chốt hosting, workflow CD nên có thứ tự: build image từ Docker của TV1, đẩy lên registry, deploy, chạy `node scripts/smoke.mjs`, và tự rollback nếu smoke lỗi. Chỉ chọn nhà cung cấp và điền secret khi cả nhóm đã thống nhất.
 
-## 4. Điểm cần báo TV1 và TV3 (đọc từ code, chưa chạy Docker để xác nhận)
+## 4. Điểm cần báo TV1, TV3, TV5 (đọc từ code, chưa chạy Docker để xác nhận)
 
-- `docker-compose.yml` ở service `api` không truyền `JWT_SECRET` và không có `env_file`. `.dockerignore` ở gốc repo loại `.env` khỏi image. `main.ts` kiểm tra `JWT_SECRET` khi khởi động, nên container `api` nhiều khả năng sẽ dừng ngay khi chạy bằng Docker. Cần TV1 và TV3 thêm `JWT_SECRET: ${JWT_SECRET:?...}` (và `JWT_EXPIRES_IN_SECONDS` nếu muốn) vào `environment` của `api`.
-- Image `api` đặt `NODE_ENV=production`, mà production từ chối secret chứa `local_only`. Khi chạy Docker thử local, cần một `JWT_SECRET` riêng, không phải giá trị mẫu trong `.env_vidu`.
-- `FRONTEND_ORIGIN` trong compose đang cố định là `http://localhost:3000`; production cần đổi theo URL thật.
+- `apps/web/Dockerfile` (TV1) trước đây chưa khai báo `ARG NEXT_PUBLIC_API_BASE_URL`, nên image web production sẽ gọi `http://localhost:4000`. Gói sửa lỗi đã thêm 2 dòng `ARG`/`ENV`; TV1 cần biết khi merge. `cd.yml` đã truyền build-arg này (và các biến VietQR).
+- `docker-compose.yml` đã truyền `JWT_SECRET` và `SEPAY_WEBHOOK_API_KEY` cho `api` (TV1 đã xử lý). Khi chạy Docker local vẫn cần `JWT_SECRET` riêng, không chứa `local_only`, vì image `api` đặt `NODE_ENV=production`. Thông báo lỗi trong `docker-compose.yml` và dòng đầu `.env.example` vẫn nhắc `.env_vidu` (tên cũ), chỉ là chữ, không ảnh hưởng chạy.
+- `apps/api/sepay/` (ngoài `src/`) chỉ là các file re-export thừa; code thật ở `apps/api/src/sepay/`.
+- Seed tạo 24 tài khoản demo cùng mật khẩu `BrewLite123!`; trên production cần đổi mật khẩu hoặc vô hiệu các tài khoản này.
+- Trang `/payment` (TV5) hiện chỉ có luồng QR chuyển khoản (SePay). Backend vẫn có `POST /payments` với cổng mô phỏng `MockPaymentGateway` (Ví/Thẻ), nhưng **không có giao diện chọn Ví/Thẻ** trong `apps/web`. Đề (Task 5.1) yêu cầu thanh toán Ví/Thẻ mô phỏng, nên TV5 cần xác nhận phần này.
+- Đầu file `apps/api/src/services/orders.service.ts` còn ghi chú cũ "OrderExpiryJob chưa đăng ký" trong khi `app.module.ts` đã đăng ký; TV4 nên sửa ghi chú cho khỏi gây hiểu nhầm.
 
 ## 5. Kiểm tra quyền sở hữu và chuyển trạng thái
 
@@ -71,3 +76,17 @@ SEPAY_WEBHOOK_API_KEY=<giá trị trong .env của API> node scripts/simulate-se
 ```
 
 Tổng tiền phải đúng bằng tổng đơn, nếu không webhook trả 400. Script chỉ chạy với API trên localhost.
+
+## 7. Kiểm tra lỗi "tự hủy đơn khi thanh toán thành công / xem đơn"
+
+Kiểm tra bằng đọc code (không chạy được hệ thống), phần TV6 và các điểm liên quan để báo TV4:
+
+- **Frontend (TV6):** `cancelOrder` chỉ được gọi trong `confirmCancel` của `OrderDetailView.tsx`, sau khi khách bấm "Hủy đơn" rồi "Xác nhận hủy". Trang `/payment-status` và `/orders/[id]` khi tải chỉ gọi `GET /orders/:id`; polling chỉ gọi thêm `POST /payments/:id/reconcile` khi lần thanh toán mới nhất đang `PROCESSING`. Không có đường nào gọi `/cancel` ngầm.
+- **Xóa giỏ:** `PaymentStatusView` chỉ xóa giỏ khi backend xác nhận đơn đã trả tiền. Đã sửa để mỗi mã đơn chỉ xóa giỏ **một lần** (ghi nhớ ở `localStorage`, khóa `brewlite.cleared-orders`), tránh xóa nhầm giỏ mới khi khách mở lại trang kết quả của đơn cũ.
+- **Backend (đọc để báo TV4, không sửa):** mọi `UPDATE orders` đều có `WHERE id = $1` (không có câu lệnh hủy theo `user_id`). `finalizePayment` và webhook SePay chỉ đổi đúng `orderId` được thanh toán. `findExpiredPendingOrders` chỉ lấy đơn `PENDING` có `expires_at < now()` và không có thanh toán `PROCESSING`; `expires_at` mặc định `now() + 15 phút` (`TIMESTAMPTZ`, không lệch múi giờ) và còn có thể đổi bằng `ORDER_TTL_MINUTES`.
+- **Job hết hạn:** `OrderExpiryJob` đã được đăng ký trong `app.module.ts` và chạy mỗi 5 giây (`INTERVAL_MS = 5_000`), khớp phân công. Truy vấn `findExpiredPendingOrders` còn kiểm tra lại từng đơn (khóa dòng, `expires_at`, payment `PROCESSING`) trước khi hủy.
+- **Chưa xác nhận được nguyên nhân gốc:** chưa tái hiện được lỗi vì không chạy được hệ thống. Nếu lỗi vẫn xảy ra, kiểm tra theo thứ tự: trạng thái đơn trong DB trước/sau khi xem, `expires_at` của đơn bị hủy (có phải đã quá 15 phút không), và log của `OrderExpiryJob`. Test E2E "Nhiều đơn PENDING độc lập" trong `tests/e2e/checkout.spec.ts` tái hiện đúng kịch bản của báo lỗi.
+
+## 8. E2E (Playwright)
+
+Chạy trên Docker, xem `docs/deployment.md` mục 8. Gồm 4 test: luồng đầy đủ đến PAID (tiền về qua webhook SePay để kết quả cố định), trang thanh toán QR (đơn vẫn PENDING, trang kết quả chờ tiền, không hủy nhầm), một đơn PAID không đổi đơn PENDING khác, và (tùy chọn, `E2E_WAIT_EXPIRY_JOB=1`) job hết hạn không hủy đơn chưa hết hạn. Chưa có `data-testid` từ TV2 nên selector dùng role/nhãn/`href`; đổi chữ trên giao diện có thể làm test hỏng và cần cập nhật theo. Chưa chạy được trong môi trường soạn (không có Docker/mạng), nên kết quả chạy thật phải lấy từ máy của bạn hoặc workflow `E2E`.

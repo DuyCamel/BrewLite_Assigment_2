@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 import {
+  BadRequestException,
   ConflictException,
   NotFoundException,
 } from "@nestjs/common";
@@ -214,6 +215,24 @@ function createNewPaymentFlow() {
     },
   };
 }
+
+// --- 2 TEST CASE CƠ BẢN VỪA BỔ SUNG ---
+test("từ chối thanh toán (BadRequest) nếu thiếu Idempotency-Key", async () => {
+  const fixture = createNewPaymentFlow();
+  await assert.rejects(
+    fixture.service.createPayment("user-1", paymentInput, "   "),
+    BadRequestException,
+  );
+});
+
+test("từ chối thanh toán (BadRequest) nếu phương thức không hợp lệ", async () => {
+  const fixture = createNewPaymentFlow();
+  await assert.rejects(
+    fixture.service.createPayment("user-1", { ...paymentInput, method: "UNKNOWN" as any }, "key-123"),
+    BadRequestException,
+  );
+});
+// -------------------------------------
 
 test("retry cùng idempotency key hoàn tất payment PROCESSING mà không tạo attempt mới", async () => {
   const fixture = createProcessingPayment();

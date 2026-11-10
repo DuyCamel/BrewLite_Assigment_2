@@ -18,4 +18,19 @@ export class LoyaltyService {
 
     await this.loyaltyModel.insertEarnOnce(userId, orderId, points, transaction);
   }
+
+  // Kiểm tra điểm
+  async checkPoints(userId: string, transaction: PoolClient): Promise<number> {
+    return this.loyaltyModel.getUserPoints(userId, transaction);
+  }
+
+  // Trừ điểm
+  async redeemPoints(
+    userId: string,
+    orderId: string,
+    points: number,
+    transaction: PoolClient,
+  ): Promise<void> {
+    await this.loyaltyModel.insertRedeem(userId, orderId, points, transaction);
+  }
 }

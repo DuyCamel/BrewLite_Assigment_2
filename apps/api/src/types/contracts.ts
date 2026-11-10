@@ -27,7 +27,8 @@ export interface PromotionInput {
 }
 export interface PaymentInput {
   orderId: string;
-  method: "WALLET" | "CARD";
+  method: "WALLET" | "CARD" | "SEPAY"; // Đã thêm phương thức SEPAY
+  pointsToUse?: number; // Đã thêm trường điểm Loyalty
 }
 export type PaymentResult = "SUCCEEDED" | "FAILED" | "UNKNOWN";
 export type OrderStatus =

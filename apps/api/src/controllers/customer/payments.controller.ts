@@ -17,18 +17,31 @@ import { PaymentsService } from "../../services/payments.service.js";
 import type { PaymentInput } from "../../types/contracts.js";
 
 function parsePaymentInput(body: unknown): PaymentInput {
+  // Máy định vị 1: In ra màn hình Terminal xem Frontend gửi lên cái gì
+  console.log("=== DỮ LIỆU FRONTEND GỬI LÊN ===", body);
+  
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
-    throw new BadRequestException("Thông tin thanh toán không hợp lệ");
+    throw new BadRequestException("Thông tin thanh toán không hợp lệ (Lỗi 1: Body rỗng hoặc sai kiểu)");
   }
+  
   const value = body as Record<string, unknown>;
-  if (
-    typeof value.orderId !== "string" ||
-    value.orderId.trim() === "" ||
-    (value.method !== "WALLET" && value.method !== "CARD")
-  ) {
-    throw new BadRequestException("Thông tin thanh toán không hợp lệ");
+  
+  if (typeof value.orderId !== "string" || value.orderId.trim() === "") {
+    console.log("Lỗi orderId:", value.orderId);
+    throw new BadRequestException("Thông tin thanh toán không hợp lệ (Lỗi 2: Thiếu orderId)");
   }
-  return { orderId: value.orderId.trim(), method: value.method };
+  
+  // Nới lỏng chốt chặn: Cho phép SEPAY
+  if (value.method !== "WALLET" && value.method !== "CARD" && value.method !== "SEPAY") {
+    console.log("Lỗi method:", value.method);
+    throw new BadRequestException("Thông tin thanh toán không hợp lệ (Lỗi 3: Sai phương thức " + value.method + ")");
+  }
+  
+  return { 
+    orderId: value.orderId.trim(), 
+    method: value.method as any,
+    pointsToUse: typeof value.pointsToUse === 'number' ? value.pointsToUse : 0
+  };
 }
 
 function currentUserId(request: AuthenticatedRequest): string {

@@ -47,12 +47,7 @@ before(async () => {
   process.env.JWT_SECRET = SECRET;
   delete process.env.FRONTEND_ORIGIN;
   await pg.exec("BEGIN");
-  for (const file of [
-    "001_schema.sql",
-    "002_integrity.sql",
-    "003_seed.sql",
-    "008_password_reset.sql",
-  ])
+  for (const file of ["001_schema.sql", "002_seed.sql"])
     await pg.exec(sql(file));
   await pg.exec("COMMIT");
   const controllers = Reflect.getMetadata(

@@ -16,6 +16,45 @@ export class InventoryModel {
       "SELECT to_regclass('public.product_recipes') IS NOT NULL AS exists",
     );
     if (!schema.rows[0]?.exists) return false;
+    const invalidRecipe = await transaction.query<{ invalid: boolean }>(
+      `WITH requested AS (
+         SELECT item->>'productId' AS product_id,
+                item->>'size' AS size,
+                item->'toppingIds' AS topping_ids
+         FROM jsonb_array_elements($1::jsonb) AS x(item)
+       ),
+       missing_product_recipes AS (
+         SELECT 1
+         FROM requested q
+         WHERE NOT EXISTS (
+           SELECT 1
+           FROM product_recipes r
+           WHERE r.product_id = q.product_id AND r.size = q.size
+         )
+       ),
+       missing_topping_recipes AS (
+         SELECT 1
+         FROM requested q
+         CROSS JOIN LATERAL jsonb_array_elements_text(q.topping_ids) AS topping(topping_id)
+         WHERE NOT EXISTS (
+           SELECT 1
+           FROM topping_recipes r
+           WHERE r.product_id = q.product_id AND r.topping_id = topping.topping_id
+         )
+       )
+       SELECT EXISTS (
+         SELECT 1 FROM missing_product_recipes
+         UNION ALL
+         SELECT 1 FROM missing_topping_recipes
+       ) AS invalid`,
+      [JSON.stringify(items)],
+    );
+    if (invalidRecipe.rows[0]?.invalid) {
+      throw new ConflictException(
+        "Sản phẩm hoặc topping chưa có công thức nguyên liệu",
+      );
+    }
+
     const result = await transaction.query<{
       ingredientId: string;
       quantity: number;

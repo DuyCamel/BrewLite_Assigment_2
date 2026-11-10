@@ -1,25 +1,31 @@
 # Bộ SQL BrewLite
 
-| File              | Mục đích                                                                                                   |
-| ----------------- | ---------------------------------------------------------------------------------------------------------- |
-| 001_schema.sql    | Schema, constraint, trigger và các phần mở rộng database                                                    |
-| 002_seed.sql      | Dữ liệu demo đa dạng, không ghi đè dữ liệu đang có                                                         |
+| File                       | Mục đích                                                   |
+| -------------------------- | ---------------------------------------------------------- |
+| 001_schema.sql             | Schema, constraint, trigger và metadata thanh toán         |
+| 002_seed.sql               | Dữ liệu demo, không ghi đè dữ liệu đang có                 |
+| 003_catalog.sql            | Danh mục sản phẩm                                           |
+| 004_image_urls.sql         | Cột URL ảnh sản phẩm                                        |
+| 006_recipe_data.sql        | Công thức và dữ liệu tồn nguyên liệu                        |
+| 007_order_payment_codes.sql| Mã thanh toán đơn hàng                                      |
+| 008_image_urls_backfill.sql| Bổ sung URL ảnh cho dữ liệu hiện có                         |
+| 009_qr_reissue.sql         | Thời hạn và số lần cấp lại QR                               |
 
 ## Chạy từ thư mục gốc
 
 1. Copy `.env_vidu` thành `.env`, sửa tài khoản PostgreSQL.
 2. `npm run db:check`
 3. `npm run db:migrate` chạy schema trong transaction, ghi tên/checksum vào schema_migrations.
-4. `npm run db:seed` chạy 003 trong transaction riêng.
+4. `npm run db:seed` chạy `002_seed.sql` trong transaction riêng.
 5. `npm run db:migrate` lần nữa để áp dụng catalog công thức và ảnh cho các sản phẩm vừa seed.
 
-Có thể chạy SQL thủ công bằng psql/pgAdmin theo đúng thứ tự `001_schema.sql` rồi `002_seed.sql`. Bọc mỗi file trong transaction.
+Có thể chạy SQL thủ công bằng psql/pgAdmin theo thứ tự `001_schema.sql`, `002_seed.sql`, rồi các migration còn lại theo số thứ tự. Bọc mỗi file trong transaction.
 Không chạy seed tự động khi khởi động backend hoặc trên production. Dữ liệu demo dùng tiền tố `demo-`, email miền `.test`.
 
 Nếu đã chạy bộ cũ chỉ có products: 001 giữ bảng và dữ liệu products, bổ sung các bảng còn thiếu. Tám món cũ được giữ bằng ON CONFLICT DO NOTHING.
-Không sửa 001/002 sau khi runner đã áp dụng; viết 004_ten_thay_doi.sql và chạy db:migrate. Nếu đã thử phiên bản trước của cùng PR trên DB nháp, nên dùng một database test mới thay vì tự xóa lịch sử migration.
+Không sửa migration đã được runner áp dụng; tạo file migration với số thứ tự chưa dùng tiếp theo và chạy `db:migrate`. Runner kiểm tra checksum để phát hiện migration cũ bị sửa.
 
-## 002 kiểm tra gì
+## `001_schema.sql` kiểm tra gì
 
 - Giá/tồn/điểm không âm; số lượng 1–99; size/topping hợp lệ, không trùng; đơn giá không âm và tổng dòng đúng theo phép nhân.
 - Email unique không phân biệt hoa thường, password lưu bcrypt hash; mã giảm giá unique, phần trăm 1–100, thời hạn hợp lệ.
@@ -33,11 +39,11 @@ Không sửa 001/002 sau khi runner đã áp dụng; viết 004_ten_thay_doi.sql
 
 TV4 vẫn phải tính đơn giá chính thức từ catalog trong service; database kiểm tra snapshot và phép tính, không tính lại lịch sử theo giá catalog mới.
 
-002 không thay JWT/kiểm tra quyền sở hữu ở API, không gọi gateway, không tự giữ/hoàn tồn hoặc tự đặt PAID. TV4 vẫn dùng UPDATE theo stock/version và cùng client transaction. Index/constraint chống ghi sai không thay cơ chế idempotency trả lại kết quả trong service.
+Schema không thay JWT/kiểm tra quyền sở hữu ở API, không gọi gateway, không tự giữ/hoàn tồn hoặc tự đặt PAID. TV4 vẫn dùng UPDATE theo stock/version và cùng client transaction. Index/constraint chống ghi sai không thay cơ chế idempotency trả lại kết quả trong service.
 
 ## SePay sandbox
 
-Migration `004_sepay.sql` bổ sung metadata giao dịch SePay. Endpoint `POST /webhooks/sepay`
+`001_schema.sql` định nghĩa metadata giao dịch SePay. Endpoint `POST /webhooks/sepay`
 nhận webhook có header `Authorization: Apikey <SEPAY_WEBHOOK_API_KEY>`. Nội dung chuyển
 khoản phải chứa `BREWLITE-ORDER-<order UUID>` và số tiền phải bằng `orders.total`.
 Chỉ webhook hợp lệ mới được ghi payment `SUCCEEDED`, chuyển đơn `PENDING` thành `PAID`
@@ -45,22 +51,18 @@ và ghi `EARN` trong cùng transaction. Gửi lại cùng `id` SePay là thao t�
 
 ## Tồn kho nguyên liệu
 
-Migration `005_ingredient_inventory.sql` bổ sung `ingredients`, công thức theo size
-(`product_recipes`), công thức topping (`topping_recipes`) và lượng đã giữ theo đơn
-(`order_ingredient_reservations`). Khi migration này có mặt, tạo đơn sẽ trừ nguyên liệu
-theo công thức trong cùng transaction; hủy/thất bại sẽ hoàn đúng lượng đã giữ. `products.stock`
-chỉ còn là đường tương thích cho database cũ chưa có migration 005.
+`001_schema.sql` định nghĩa `ingredients`, công thức theo size (`product_recipes`),
+công thức topping (`topping_recipes`) và lượng đã giữ theo đơn
+(`order_ingredient_reservations`). Tạo đơn trừ nguyên liệu theo công thức trong cùng
+transaction; hủy/thất bại sẽ hoàn đúng lượng đã giữ. `products.stock` là đường tương thích
+cho sản phẩm chưa có công thức nguyên liệu.
 
-Migration 005 tạo công thức `piece` tạm cho dữ liệu cũ để không làm mất tồn khi nâng cấp.
-Trước khi demo nghiệp vụ pha chế, cần thay các dòng này bằng định lượng thực tế theo `ml`,
-`gram` hoặc `piece`; không dùng giá trị tạm đó làm công thức sản phẩm chính thức.
-
-Migration `006_recipe_catalog.sql` là công thức chính thức của menu: bảng định lượng là
-size S, size M bằng 125% và size L bằng 150%, làm tròn lên từng nguyên liệu. Tồn đầu kỳ
+`006_recipe_data.sql` nạp công thức chính thức của menu: định lượng gốc là size S, size M
+bằng 125% và size L bằng 150%, làm tròn lên từng nguyên liệu. Tồn đầu kỳ
 được đặt là 5.000 theo đơn vị của từng nguyên liệu (5.000 ml, 5.000 gram hoặc 5.000 piece).
 Topping được quy ước 50 gram trân châu và 30 gram kem sữa mỗi phần.
 
-## Dữ liệu trong 003
+## Dữ liệu trong `002_seed.sql`
 
 | Bảng                 | Số bản ghi |
 | -------------------- | ---------: |
@@ -87,9 +89,9 @@ Khách mẫu: `khach01@brewlite.test` đến `khach24@brewlite.test`. Mật kh�
 | GIAMTOIDA   | Mức giảm cố định lớn hơn tiền hàng để kiểm tra giới hạn |
 | GIAM100     | Giảm 100%, kiểm tra đơn tổng bằng 0                     |
 
-003 đánh dấu `003_demo_v1` trong seed_history, chạy lại sẽ bỏ qua cả bộ, không cộng điểm/hoàn tồn/ghi thêm đơn. Đây là snapshot test, không phải script phát lại mọi lần trừ tồn trong lịch sử. Muốn trở về bộ mẫu sạch, tạo DB test mới rồi chạy lại 001/002/003; không có lệnh reset phá dữ liệu tự động.
+Seed đánh dấu `003_demo_v1` trong seed_history, chạy lại sẽ bỏ qua cả bộ, không cộng điểm/hoàn tồn/ghi thêm đơn. Đây là snapshot test, không phải script phát lại mọi lần trừ tồn trong lịch sử. Muốn trở về bộ mẫu sạch, tạo DB test mới rồi chạy lại `001_schema.sql` và `002_seed.sql`; không có lệnh reset phá dữ liệu tự động.
 
-`seed/products.json` đồng bộ 40 món với 003 để chế độ PRODUCT_DATA_SOURCE=sample vẫn dùng cùng menu. Sample mode chỉ phục vụ xem menu, không mô phỏng toàn bộ DB.
+`seed/products.json` đồng bộ 40 món với seed để chế độ PRODUCT_DATA_SOURCE=sample vẫn dùng cùng menu. Sample mode chỉ phục vụ xem menu, không mô phỏng toàn bộ DB.
 
 ## Kiểm thử
 

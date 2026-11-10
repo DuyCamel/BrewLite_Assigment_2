@@ -27,23 +27,19 @@ async function main() {
                 "001_schema.sql",
                 "003_catalog.sql",
                 "004_image_urls.sql",
-                "005_recipe_data.sql",
                 "006_recipe_data.sql",
                 "007_order_payment_codes.sql",
                 "008_image_urls_backfill.sql",
                 "009_qr_reissue.sql",
-              ].includes(
-                name,
-              ),
+              ].includes(name),
             )
             .sort();
           for (const name of files) {
             if (
-                name === "003_catalog.sql" ||
-                name === "004_image_urls.sql" ||
-                name === "005_recipe_data.sql" ||
-                name === "006_recipe_data.sql" ||
-                name === "008_image_urls_backfill.sql"
+              name === "003_catalog.sql" ||
+              name === "004_image_urls.sql" ||
+              name === "006_recipe_data.sql" ||
+              name === "008_image_urls_backfill.sql"
             ) {
               const products = await client.query(
                 "SELECT EXISTS (SELECT 1 FROM products) AS has_products",

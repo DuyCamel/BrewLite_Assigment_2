@@ -1,4 +1,4 @@
-// TV6 — Quy tắc trạng thái đơn, KHỚP trigger guard_order_change trong 002_integrity.sql.
+// TV6 — Quy tắc trạng thái đơn, KHỚP trigger guard_order_change trong 001_schema.sql.
 // Đổi bảng chuyển ở đây thì phải có migration 004 tương ứng (và ngược lại).
 import {
   ConflictException,

@@ -1,4 +1,4 @@
-// TV4 — Test luồng nguyên liệu (migration 005/006): đặt đơn trừ nguyên liệu theo công thức, hủy hoàn,
+// TV4 — Test luồng nguyên liệu (schema 001, công thức 006): đặt đơn trừ nguyên liệu theo công thức, hủy hoàn,
 // thanh toán thất bại rồi thử lại, hết nguyên liệu, món không có công thức.
 // DB là PGlite đủ 001 đến 006 (xem createIngredientTestDb). Service dựng bằng tay như order-service.test.ts.
 import assert from "node:assert/strict";
@@ -164,25 +164,22 @@ test("món không có công thức: đặt riêng bị 409 và không tạo đơ
   assert.equal(await countOrders(db), before);
 });
 
-// Hành vi mong muốn, CHƯA đúng: reserveIngredients chỉ trừ cho các món có công thức nên món thiếu công thức
-// được đặt "miễn phí" khi nằm chung đơn với món khác. Cần nhóm chốt cách xử lý (từ chối cả đơn hay bổ sung công thức).
-// Cờ todo giúp CI không đỏ; khi file reserveIngredients được vá, bỏ cờ todo.
-test(
-  "đơn có món không công thức lẫn món có công thức phải bị từ chối 409",
-  { todo: "reserveIngredients chưa từ chối món thiếu công thức khi đặt chung" },
-  async () => {
-    await assert.rejects(
-      () =>
-        service.createOrder(USER_ID, {
-          items: [
-            lineM(1),
-            { productId: NO_RECIPE_PRODUCT_ID, size: "S", toppingIds: [], quantity: 1 },
-          ],
-        }),
-      ConflictException,
-    );
-  },
-);
+test("đơn có món không công thức lẫn món có công thức bị từ chối 409", async () => {
+  const before = await countOrders(db);
+  await assert.rejects(
+    () =>
+      service.createOrder(USER_ID, {
+        items: [
+          lineM(1),
+          { productId: NO_RECIPE_PRODUCT_ID, size: "S", toppingIds: [], quantity: 1 },
+        ],
+      }),
+    ConflictException,
+  );
+  assert.equal(await countOrders(db), before, "đơn phải rollback");
+  assert.equal(await readIngredient(db, ING_TEA), ING_START, "không được giữ một phần tồn");
+  assert.equal(await readIngredient(db, ING_PEARL), ING_START, "không được giữ topping");
+});
 
 test("món trong danh mục thật (ca-phe-sua): size M đúng quy tắc nhân 1,25 làm tròn lên và trừ đúng tồn", async () => {
   const recipe = async (size: string) =>

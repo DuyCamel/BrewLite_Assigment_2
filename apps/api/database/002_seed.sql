@@ -1,5 +1,5 @@
 -- Dữ liệu demo có tiền tố demo-; không dùng làm dữ liệu thật.
--- Chạy sau 001_schema.sql và 002_integrity.sql. Chạy lại sẽ bỏ qua, không reset tồn/điểm.
+-- Chạy sau 001_schema.sql. Chạy lại sẽ bỏ qua, không reset tồn/điểm.
 DO $seed$
 BEGIN
  IF EXISTS (SELECT 1 FROM seed_history WHERE name='003_demo_v1') THEN

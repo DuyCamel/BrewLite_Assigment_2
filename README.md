@@ -153,6 +153,24 @@ npm run dev -w apps/web
 
 CI theo **Task 4.4** phải tự chạy khi mở Pull Request: **Install → Lint → Unit Test → Build**. Bắt buộc bật branch protection/required checks để không merge khi lint, test hoặc build lỗi. Cần lưu link PR, một log chạy thành công và một log phát hiện lỗi.
 
+### E2E Playwright
+
+Toàn bộ kịch bản nằm trong **một file** `tests/e2e/checkout.spec.ts`, tổng hợp phần E2E của Anh và MinhTri: checkout qua UI, giỏ sau reload/đăng nhập, giá và tùy chọn, QR/SePay, callback lặp, chờ/hủy đơn, hai đơn độc lập, quyền sở hữu và mock `WALLET`/`CARD`. Chạy trên Chromium mobile và desktop.
+
+```bash
+npm ci
+npx playwright install chromium
+npm run test:e2e:up
+npm run test:e2e
+npm run test:e2e:down
+```
+
+Docker Desktop phải đang chạy. Stack `brewlite-e2e` tự migrate/seed database riêng; web ở `http://localhost:4300`, API ở `http://localhost:4400`. Không cần tài khoản có sẵn, `.env` hay secret thật. Tài khoản ngân hàng/khóa trong cấu hình E2E chỉ là fixture, không chuyển tiền thật. Lệnh `test:e2e:down` xóa **chỉ volume của stack test**; chạy sau mỗi đợt để lần sau có tồn kho sạch, kể cả khi test lỗi. Không thay bằng `docker compose down -v` trên stack ứng dụng.
+
+Luồng UI hiện dùng QR: test chỉ thay ảnh bên thứ ba, kiểm tra URL QR thật và gửi webhook theo mã `DH` thật; API, database và polling/điều hướng giữ nguyên. Mock Ví/Thẻ được kiểm tra qua API thật và màn kết quả, không giả định có nút Ví/Thẻ trên UI. Gateway vẫn ngẫu nhiên: test kiểm tra nhánh thực tế và idempotency, không thử đến khi thành công; không đảm bảo mỗi lần chạy đều đi qua nhánh thất bại/timeout. Các nhánh xác định được kiểm tra thêm trong unit/integration test của API.
+
+Workflow `.github/workflows/e2e.yml` chạy trên PR, push `main` hoặc thủ công; lưu HTML report/trace/screenshot và luôn dọn stack test. Xem report bằng `npx playwright show-report`. `npm test` vẫn dành cho unit/integration của API.
+
 ## 6. Yêu cầu Assignment 2 và đầu ra cần bàn giao
 
 Assignment 2 có **5 Task tuần tự**, task sau chỉ được nghiệm thu khi đầu ra bắt buộc của task trước đã có trong repository và có lịch sử thay đổi.

@@ -1,0 +1,91 @@
+# Disposable fixtures only. This stack does not use the application's DB or .env secrets.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: brewlite_e2e
+      POSTGRES_USER: brewlite_e2e
+      POSTGRES_PASSWORD: brewlite_e2e_test_only
+    volumes:
+      - e2e_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brewlite_e2e -d brewlite_e2e"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: builder
+    environment: &api-environment
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: brewlite_e2e
+      DB_PASSWORD: brewlite_e2e_test_only
+      DB_NAME: brewlite_e2e
+      JWT_SECRET: brewlite-e2e-disposable-test-secret-not-for-production
+      SEPAY_WEBHOOK_API_KEY: brewlite-e2e-webhook-test-only
+      FRONTEND_ORIGIN: http://localhost:4300
+      PRODUCT_DATA_SOURCE: postgres
+      ORDER_TTL_MINUTES: 15
+      QR_TTL_MINUTES: 5
+    command:
+      [
+        "sh",
+        "-c",
+        "npm run db:migrate && npm run db:seed && npm run db:migrate",
+      ]
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment: *api-environment
+    ports:
+      - "127.0.0.1:4400:4000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:4400
+        NEXT_PUBLIC_VIETQR_BANK_ID: "970422"
+        NEXT_PUBLIC_VIETQR_ACCOUNT_NO: "0000000000"
+        NEXT_PUBLIC_VIETQR_ACCOUNT_NAME: E2E TEST ONLY
+    environment:
+      API_BASE_URL: http://api:4000
+    ports:
+      - "127.0.0.1:4300:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+volumes:
+  e2e_data:

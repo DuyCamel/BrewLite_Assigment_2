@@ -1,7 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { after, test } from "node:test";
 import { InventoryModel } from "../src/models/inventory.model.js";
 import { OrderModel } from "../src/models/order.model.js";
@@ -16,10 +13,7 @@ import {
   makeFakeDatabase,
 } from "./tv4-helpers.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const db = await createTestDb();
-const readSql = (name: string) =>
-  readFileSync(resolve(__dirname, "../database", name), "utf8");
 
 const orders = new OrdersService(
   makeFakeDatabase(db),

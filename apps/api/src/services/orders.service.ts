@@ -1,11 +1,12 @@
 // TV4 — Orders service: tạo, hủy, hết hạn giữ tồn, chuẩn bị thanh toán lại, xem giá tạm.
 // Điều phối transaction qua DatabaseService.withTransaction; SQL nằm ở OrderModel/InventoryModel.
 //
-// LƯU Ý TV4 (trạng thái 31/10/2026, đọc trước khi dùng):
+// LƯU Ý TV4 (trạng thái 08/11/2026, đọc trước khi dùng):
 // - createOrder, cancelOrder: xong, đã có OrdersController và test.
 // - previewOrder: service xong nhưng CHƯA có route/controller. Request/response là ĐỀ XUẤT, chờ TV2 và TV1 chốt.
-// - expirePendingOrders: do OrderExpiryJob gọi; job CHƯA đăng ký trong providers của app.module.ts nên chưa chạy.
-// - preparePaymentRetry: CHƯA có route, chờ TV5 gọi. Khi thanh toán thất bại, TV5 phải đổi PAYMENT_FAILED và
+// - expirePendingOrders: do OrderExpiryJob gọi mỗi 5 giây; job đã đăng ký trong providers của app.module.ts (bỏ qua ở chế độ sample).
+//   Chỉ hủy từng đơn PENDING đã quá hạn (hoặc QR lần hai quá hạn), không hủy theo user; test: order-isolation.test.ts.
+// - preparePaymentRetry: đã có route retryPayment ở OrdersController. Khi thanh toán thất bại, TV5 đổi PAYMENT_FAILED và
 //   gọi InventoryService.releaseStock trong CÙNG một transaction (trigger 002 đòi stock_released = true).
 import { randomUUID } from "crypto";
 import {

@@ -64,6 +64,12 @@ export class SepayService {
         throw new BadRequestException("Số tiền SePay không khớp tổng đơn");
       }
 
+      // Đánh dấu giao dịch giữ chỗ của giao diện là FAILED để nhường chỗ cho Webhook
+      await transaction.query(
+        `UPDATE payments SET status = 'FAILED', resolved_at = NOW() WHERE order_id = $1 AND status = 'PROCESSING'`, 
+        [order.id]
+      );
+
       const paymentId = randomUUID();
       await this.model.insertProcessingPayment(
         order.id,

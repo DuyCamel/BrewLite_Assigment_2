@@ -4,19 +4,19 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import type { PGlite } from "@electric-sql/pglite";
-import { InventoryModel } from "../src/models/inventory.model.js";
-import { LoyaltyModel } from "../src/models/loyalty.model.js";
-import { OrderModel } from "../src/models/order.model.js";
-import { PaymentModel } from "../src/models/payment.model.js";
-import { PromotionModel } from "../src/models/promotion.model.js";
-import { MockPaymentGateway } from "../src/gateways/mock-payment.gateway.js";
-import { InventoryService } from "../src/services/inventory.service.js";
-import { LoyaltyService } from "../src/services/loyalty.service.js";
-import { OrdersService } from "../src/services/orders.service.js";
-import { PaymentsService } from "../src/services/payments.service.js";
-import { PromotionsService } from "../src/services/promotions.service.js";
-import { SepayModel } from "../src/sepay/sepay.model.js";
-import { SepayService } from "../src/sepay/sepay.services.js";
+import { InventoryModel } from "../../apps/api/src/models/inventory.model.js";
+import { LoyaltyModel } from "../../apps/api/src/models/loyalty.model.js";
+import { OrderModel } from "../../apps/api/src/models/order.model.js";
+import { PaymentModel } from "../../apps/api/src/models/payment.model.js";
+import { PromotionModel } from "../../apps/api/src/models/promotion.model.js";
+import { MockPaymentGateway } from "../../apps/api/src/gateways/mock-payment.gateway.js";
+import { InventoryService } from "../../apps/api/src/services/inventory.service.js";
+import { LoyaltyService } from "../../apps/api/src/services/loyalty.service.js";
+import { OrdersService } from "../../apps/api/src/services/orders.service.js";
+import { PaymentsService } from "../../apps/api/src/services/payments.service.js";
+import { PromotionsService } from "../../apps/api/src/services/promotions.service.js";
+import { SepayModel } from "../../apps/api/src/sepay/sepay.model.js";
+import { SepayService } from "../../apps/api/src/sepay/sepay.services.js";
 import {
   PRODUCT_ID,
   USER_ID,
@@ -24,7 +24,7 @@ import {
   makeFakeDatabase,
   readStock,
   setStock,
-} from "./tv4-helpers.js";
+} from "../../apps/api/test/tv4-helpers.js";
 
 const API_KEY = "test-webhook-key";
 const AUTH = `Apikey ${API_KEY}`;

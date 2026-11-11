@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { InventoryModel } from "../src/models/inventory.model.js";
-import { OrderModel } from "../src/models/order.model.js";
-import { PromotionModel } from "../src/models/promotion.model.js";
-import { InventoryService } from "../src/services/inventory.service.js";
-import { OrdersService } from "../src/services/orders.service.js";
-import { PromotionsService } from "../src/services/promotions.service.js";
+import { InventoryModel } from "../../apps/api/src/models/inventory.model.js";
+import { OrderModel } from "../../apps/api/src/models/order.model.js";
+import { PromotionModel } from "../../apps/api/src/models/promotion.model.js";
+import { InventoryService } from "../../apps/api/src/services/inventory.service.js";
+import { OrdersService } from "../../apps/api/src/services/orders.service.js";
+import { PromotionsService } from "../../apps/api/src/services/promotions.service.js";
 import {
   PRODUCT_ID,
   USER_ID,
   createTestDb,
   makeFakeDatabase,
-} from "./tv4-helpers.js";
+} from "../../apps/api/test/tv4-helpers.js";
 
 const db = await createTestDb();
 

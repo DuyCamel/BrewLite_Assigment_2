@@ -29,69 +29,43 @@ export class PaymentsService {
   ) {}
 
   private hashPayload(input: PaymentInput): string {
-    // Chỉ hash các thuộc tính cốt lõi tạo nên giao dịch
     return createHash("sha256")
       .update(JSON.stringify({ orderId: input.orderId, method: input.method }))
       .digest("hex");
   }
 
-  async createPayment(
-    userId: string,
-    input: PaymentInput,
-    idempotencyKey: string,
-  ): Promise<PaymentAttemptRecord> {
+  async createPayment(userId: string, input: PaymentInput, idempotencyKey: string): Promise<PaymentAttemptRecord> {
     this.validateRequest(input, idempotencyKey);
     const payloadHash = this.hashPayload(input);
     const existing = await this.paymentModel.findByKey(idempotencyKey);
-    if (existing) {
-      return this.resumeExistingPayment(userId, existing, payloadHash);
-    }
+    if (existing) return this.resumeExistingPayment(userId, existing, payloadHash);
 
     let payment: PaymentAttemptRecord;
     try {
       payment = await this.db.withTransaction(async (client) => {
         const order = await this.orderModel.findForUpdate(input.orderId, client);
-        if (!order || order.userId !== userId) {
-          throw new NotFoundException(
-            "Đơn hàng không tồn tại hoặc bạn không có quyền",
-          );
-        }
-
-        // Khóa đơn tuần tự hóa hai request; kiểm tra lại key trong transaction để
-        // request đồng thời cùng key nhận lại đúng payment đã được tạo trước đó.
-        const transactionExisting = await this.paymentModel.findByKey(
-          idempotencyKey,
-          client,
-        );
+        if (!order || order.userId !== userId) throw new NotFoundException("Đơn hàng không tồn tại hoặc bạn không có quyền");
+        
+        const transactionExisting = await this.paymentModel.findByKey(idempotencyKey, client);
         if (transactionExisting) return transactionExisting;
 
-        if (order.status !== "PENDING") {
-          throw new ConflictException(
-            `Không thể thanh toán đơn hàng đang ở trạng thái ${order.status}`,
-          );
+        if (order.status !== "PENDING") throw new ConflictException(`Không thể thanh toán đơn hàng đang ở trạng thái ${order.status}`);
+        if (await this.orderModel.hasProcessingPayment(input.orderId, client)) {
+          if ((input.method as string) === "SEPAY") {
+            // Đánh dấu giao dịch cũ là FAILED thay vì xóa nó
+            await client.query(`UPDATE payments SET status = 'FAILED', resolved_at = NOW() WHERE order_id = $1 AND status = 'PROCESSING'`, [input.orderId]);
+          } else {
+            throw new ConflictException("Đơn hàng đang có giao dịch xử lý");
+          }
         }
-        if (
-          await this.orderModel.hasProcessingPayment(input.orderId, client)
-        ) {
-          throw new ConflictException("Đơn hàng đang có giao dịch xử lý");
-        }
-
         const paymentId = await this.paymentModel.insertAttempt(
-          input,
-          order.total,
-          idempotencyKey,
-          payloadHash,
-          client,
+          input, order.total, idempotencyKey, payloadHash, client
         );
+
         return {
-          id: paymentId,
-          order_id: order.id,
-          user_id: userId,
-          idempotency_key: idempotencyKey,
-          payload_hash: payloadHash,
-          amount: order.total,
-          method: input.method,
-          status: "PROCESSING",
+          id: paymentId, order_id: order.id, user_id: userId,
+          idempotency_key: idempotencyKey, payload_hash: payloadHash,
+          amount: order.total, method: input.method, status: "PROCESSING",
         };
       });
     } catch (error) {
@@ -101,29 +75,18 @@ export class PaymentsService {
       return this.resumeExistingPayment(userId, racedPayment, payloadHash);
     }
 
-    if (payment.user_id !== userId) {
-      throw new NotFoundException("Không tìm thấy giao dịch thanh toán");
-    }
-    if (payment.payload_hash !== payloadHash) {
-      throw new ConflictException(
-        "Idempotency-Key đã được dùng cho payload khác",
-      );
-    }
+    if (payment.user_id !== userId) throw new NotFoundException("Không tìm thấy giao dịch thanh toán");
+    if (payment.payload_hash !== payloadHash) throw new ConflictException("Idempotency-Key đã được dùng cho payload khác");
     return this.chargeAndFinalize(payment);
   }
 
   async getPaymentStatus(userId: string, paymentId: string): Promise<PaymentAttemptRecord> {
     const payment = await this.paymentModel.findById(paymentId);
-    if (!payment || payment.user_id !== userId) {
-      throw new NotFoundException("Không tìm thấy giao dịch thanh toán");
-    }
+    if (!payment || payment.user_id !== userId) throw new NotFoundException("Không tìm thấy giao dịch thanh toán");
     return payment;
   }
 
-  async reconcilePayment(
-    userId: string,
-    paymentId: string,
-  ): Promise<PaymentAttemptRecord> {
+  async reconcilePayment(userId: string, paymentId: string): Promise<PaymentAttemptRecord> {
     const payment = await this.getPaymentStatus(userId, paymentId);
     if (payment.status !== "PROCESSING") return payment;
     const gatewayStatus = await this.mockGateway.lookupByKey(payment.idempotency_key);
@@ -134,124 +97,56 @@ export class PaymentsService {
     return (await this.paymentModel.findById(paymentId))!;
   }
 
-  async finalizePayment(
-    paymentId: string,
-    result: "SUCCEEDED" | "FAILED",
-    userId: string,
-    orderId: string,
-    amount: number,
-  ): Promise<void> {
+  async finalizePayment(paymentId: string, result: "SUCCEEDED" | "FAILED", userId: string, orderId: string, amount: number): Promise<void> {
     await this.db.withTransaction(async (client) => {
       const order = await this.orderModel.findForUpdate(orderId, client);
-      if (!order || order.userId !== userId) {
-        throw new NotFoundException("Đơn hàng không tồn tại hoặc bạn không có quyền");
-      }
-      if (order.total !== amount) {
-        throw new ConflictException("Số tiền thanh toán không khớp tổng đơn");
-      }
+      if (!order || order.userId !== userId) throw new NotFoundException("Đơn hàng không tồn tại");
+      if (order.total !== amount) throw new ConflictException("Số tiền thanh toán không khớp tổng đơn");
 
-      const updated = await this.paymentModel.updateResult(
-        paymentId,
-        result,
-        client,
-      );
+      const updated = await this.paymentModel.updateResult(paymentId, result, client);
       if (!updated) return;
-      if (order.status !== "PENDING") {
-        throw new ConflictException(
-          `Không thể chốt thanh toán cho đơn ở trạng thái ${order.status}`,
-        );
-      }
+      if (order.status !== "PENDING") throw new ConflictException(`Không thể chốt thanh toán cho đơn ở trạng thái ${order.status}`);
 
       if (result === "SUCCEEDED") {
-        const changed = await this.orderModel.updateStatus(
-          orderId,
-          "PENDING",
-          "PAID",
-          client,
-        );
-        if (!changed) {
-          throw new ConflictException("Trạng thái đơn vừa thay đổi, hãy tải lại");
-        }
+        const changed = await this.orderModel.updateStatus(orderId, "PENDING", "PAID", client);
+        if (!changed) throw new ConflictException("Trạng thái đơn vừa thay đổi");
+        // Tích điểm Loyalty theo yêu cầu Task 5.1
         await this.loyaltyService.earnPoints(userId, orderId, amount, client);
       } else if (result === "FAILED") {
-        const changed = await this.orderModel.updateStatus(
-          orderId,
-          "PENDING",
-          "PAYMENT_FAILED",
-          client,
-        );
-        if (!changed) {
-          throw new ConflictException("Trạng thái đơn vừa thay đổi, hãy tải lại");
-        }
+        const changed = await this.orderModel.updateStatus(orderId, "PENDING", "PAYMENT_FAILED", client);
+        if (!changed) throw new ConflictException("Trạng thái đơn vừa thay đổi");
         await this.inventoryService.releaseStock(orderId, client);
       }
     });
   }
 
-  private validateRequest(
-    input: PaymentInput,
-    idempotencyKey: string,
-  ): void {
-    if (
-      typeof idempotencyKey !== "string" ||
-      idempotencyKey.trim() === "" ||
-      idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH
-    ) {
+  private validateRequest(input: PaymentInput, idempotencyKey: string): void {
+    if (typeof idempotencyKey !== "string" || idempotencyKey.trim() === "" || idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
       throw new BadRequestException("Idempotency-Key không hợp lệ");
     }
-    if (
-      typeof input?.orderId !== "string" ||
-      input.orderId.trim() === "" ||
-      (input.method !== "WALLET" && input.method !== "CARD")
-    ) {
+    if (typeof input?.orderId !== "string" || input.orderId.trim() === "" || (input.method !== "WALLET" && input.method !== "CARD" && (input.method as any) !== "SEPAY")) {
       throw new BadRequestException("Thông tin thanh toán không hợp lệ");
     }
   }
 
   private isUniqueViolation(error: unknown): boolean {
-    return (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === "23505"
-    );
+    return (typeof error === "object" && error !== null && "code" in error && error.code === "23505");
   }
 
-  private async resumeExistingPayment(
-    userId: string,
-    payment: PaymentAttemptRecord,
-    payloadHash: string,
-  ): Promise<PaymentAttemptRecord> {
-    if (payment.user_id !== userId) {
-      throw new NotFoundException("Không tìm thấy giao dịch thanh toán");
-    }
-    if (payment.payload_hash !== payloadHash) {
-      throw new ConflictException(
-        "Idempotency-Key đã được dùng cho payload khác",
-      );
-    }
+  private async resumeExistingPayment(userId: string, payment: PaymentAttemptRecord, payloadHash: string): Promise<PaymentAttemptRecord> {
+    if (payment.user_id !== userId) throw new NotFoundException("Không tìm thấy giao dịch thanh toán");
+    if (payment.payload_hash !== payloadHash) throw new ConflictException("Idempotency-Key đã được dùng cho payload khác");
     if (payment.status !== "PROCESSING") return payment;
     return this.chargeAndFinalize(payment);
   }
 
-  private async chargeAndFinalize(
-    payment: PaymentAttemptRecord,
-  ): Promise<PaymentAttemptRecord> {
-    const gatewayResult: GatewayResult = await this.mockGateway.charge(
-      payment.order_id,
-      payment.amount,
-      payment.method,
-      payment.idempotency_key,
-    );
+  private async chargeAndFinalize(payment: PaymentAttemptRecord): Promise<PaymentAttemptRecord> {
+    if ((payment.method as any) === "SEPAY") return payment; // SePay không gọi gateway, chờ webhook
+
+    const gatewayResult: GatewayResult = await this.mockGateway.charge(payment.order_id, payment.amount, payment.method as "WALLET"|"CARD", payment.idempotency_key);
     if (gatewayResult !== "TIMEOUT") {
       const result = gatewayResult === "SUCCESS" ? "SUCCEEDED" : "FAILED";
-      await this.finalizePayment(
-        payment.id,
-        result,
-        payment.user_id,
-        payment.order_id,
-        payment.amount,
-      );
+      await this.finalizePayment(payment.id, result, payment.user_id, payment.order_id, payment.amount);
     }
     return (await this.paymentModel.findById(payment.id)) ?? payment;
   }

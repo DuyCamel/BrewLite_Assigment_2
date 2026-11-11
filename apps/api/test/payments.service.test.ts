@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 import {
+  BadRequestException,
   ConflictException,
   NotFoundException,
 } from "@nestjs/common";
@@ -215,6 +216,28 @@ function createNewPaymentFlow() {
   };
 }
 
+// Bổ sung Unit Test: Kiểm tra BadRequest khi thiếu Idempotency-Key
+test("từ chối thanh toán (BadRequest) nếu thiếu Idempotency-Key", async () => {
+  const fixture = createNewPaymentFlow();
+  await assert.rejects(
+    fixture.service.createPayment("user-1", paymentInput, "   "),
+    BadRequestException,
+  );
+});
+
+// Bổ sung Unit Test: Kiểm tra BadRequest khi phương thức thanh toán không hợp lệ
+test("từ chối thanh toán (BadRequest) nếu phương thức không hợp lệ", async () => {
+  const fixture = createNewPaymentFlow();
+  await assert.rejects(
+    fixture.service.createPayment(
+      "user-1",
+      { ...paymentInput, method: "UNKNOWN" as any },
+      "key-123"
+    ),
+    BadRequestException,
+  );
+});
+
 test("retry cùng idempotency key hoàn tất payment PROCESSING mà không tạo attempt mới", async () => {
   const fixture = createProcessingPayment();
 
@@ -257,7 +280,8 @@ test("LoyaltyModel tạo id cho EARN và LoyaltyService vẫn ghi giao dịch 0 
 
   let recordedPoints: number | undefined;
   const service = new LoyaltyService({
-    insertEarnOnce: async (_userId, _orderId, points) => {
+    // THÊM : string CHO _userId VÀ _orderId
+    insertEarnOnce: async (_userId: string, _orderId: string, points: number) => {
       recordedPoints = points;
     },
   } as never);

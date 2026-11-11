@@ -236,6 +236,8 @@ test("unpaid order keeps the cart and cancellation affects only that order", asy
     `/login?returnUrl=${encodeURIComponent(`/payment?orderId=${order.id}`)}`,
   );
   await login(page, user.email);
+  await page.getByRole("button", { name: "Xác nhận & Thanh toán" }).click();
+
   await expect(
     page.getByRole("img", { name: "Mã QR chuyển khoản VietQR" }),
   ).toBeVisible();
@@ -248,6 +250,7 @@ test("unpaid order keeps the cart and cancellation affects only that order", asy
   expect(pending.status).toBe("PENDING");
   expect(pending.payments).toHaveLength(0);
   expect(pending.pointsEarned).toBeNull();
+  await page.getByRole("button", { name: "Xác nhận & Thanh toán" }).click();
   await json(
     await request.post(`${API}/orders/${order.id}/cancel`, {
       headers: user.headers,

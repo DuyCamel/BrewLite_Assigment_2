@@ -46,7 +46,9 @@ function createService(isUnexpired = true) {
   const db = {
     withTransaction: async <T>(
       operation: (transaction: PoolClient) => Promise<T>,
-    ) => operation({} as PoolClient),
+    ) => operation({ 
+        query: async () => ({ rowCount: 1 }) 
+    } as unknown as PoolClient),
   } as unknown as DatabaseService;
   return { service: new SepayService(db, model), inserted };
 }

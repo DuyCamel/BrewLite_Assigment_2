@@ -43,11 +43,6 @@ export interface OrderRecord {
   qrAttempts: number;
 }
 
-export interface StockSnapshot {
-  stock: number;
-  version: number;
-}
-
 export interface SizeOption {
   name: string;
   extraPrice: number;

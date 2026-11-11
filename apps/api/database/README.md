@@ -10,24 +10,26 @@
 | 007_order_payment_codes.sql| Mã thanh toán đơn hàng                                      |
 | 008_image_urls_backfill.sql| Bổ sung URL ảnh cho dữ liệu hiện có                         |
 | 009_qr_reissue.sql         | Thời hạn và số lần cấp lại QR                               |
+| 010_product_inventory.sql  | Bỏ tồn kho riêng khỏi sản phẩm                              |
 
 ## Chạy từ thư mục gốc
 
 1. Copy `.env_vidu` thành `.env`, sửa tài khoản PostgreSQL.
 2. `npm run db:check`
-3. `npm run db:migrate` chạy schema trong transaction, ghi tên/checksum vào schema_migrations.
+3. `npm run db:migrate` chạy schema và migration trong transaction, ghi tên/checksum vào schema_migrations.
 4. `npm run db:seed` chạy `002_seed.sql` trong transaction riêng.
 5. `npm run db:migrate` lần nữa để áp dụng catalog công thức và ảnh cho các sản phẩm vừa seed.
 
 Có thể chạy SQL thủ công bằng psql/pgAdmin theo thứ tự `001_schema.sql`, `002_seed.sql`, rồi các migration còn lại theo số thứ tự. Bọc mỗi file trong transaction.
 Không chạy seed tự động khi khởi động backend hoặc trên production. Dữ liệu demo dùng tiền tố `demo-`, email miền `.test`.
+`001_schema.sql` là migration nền đã áp dụng; không sửa file này. `010_product_inventory.sql` loại bỏ cột product stock cũ trên DB đang dùng, giữ nguyên `products.version`.
 
 Nếu đã chạy bộ cũ chỉ có products: 001 giữ bảng và dữ liệu products, bổ sung các bảng còn thiếu. Tám món cũ được giữ bằng ON CONFLICT DO NOTHING.
 Không sửa migration đã được runner áp dụng; tạo file migration với số thứ tự chưa dùng tiếp theo và chạy `db:migrate`. Runner kiểm tra checksum để phát hiện migration cũ bị sửa.
 
 ## `001_schema.sql` kiểm tra gì
 
-- Giá/tồn/điểm không âm; số lượng 1–99; size/topping hợp lệ, không trùng; đơn giá không âm và tổng dòng đúng theo phép nhân.
+- Giá/điểm không âm; tồn nguyên liệu không âm; số lượng 1–99; size/topping hợp lệ, không trùng; đơn giá không âm và tổng dòng đúng theo phép nhân.
 - Email unique không phân biệt hoa thường, password lưu bcrypt hash; mã giảm giá unique, phần trăm 1–100, thời hạn hợp lệ.
 - Khóa ngoại; subtotal bằng tổng dòng; total = subtotal − discount; giảm không vượt tiền hàng.
 - Đơn mới PENDING; chỉ cho phép các cạnh trạng thái đã quy định; không sửa giá chốt/chủ đơn; chi tiết chỉ được lập trong transaction tạo đơn và trước khi có payment; không xóa đơn đã trả tiền.
@@ -39,7 +41,7 @@ Không sửa migration đã được runner áp dụng; tạo file migration v�
 
 TV4 vẫn phải tính đơn giá chính thức từ catalog trong service; database kiểm tra snapshot và phép tính, không tính lại lịch sử theo giá catalog mới.
 
-Schema không thay JWT/kiểm tra quyền sở hữu ở API, không gọi gateway, không tự giữ/hoàn tồn hoặc tự đặt PAID. TV4 vẫn dùng UPDATE theo stock/version và cùng client transaction. Index/constraint chống ghi sai không thay cơ chế idempotency trả lại kết quả trong service.
+Schema không thay JWT/kiểm tra quyền sở hữu ở API, không gọi gateway, không tự giữ/hoàn tồn hoặc tự đặt PAID. TV4 giữ/hoàn tồn nguyên liệu trong cùng client transaction; khi cạnh tranh, dùng compare-and-swap `ingredients.version` và đọc lại để retry nếu version vừa đổi. Các nguyên liệu được xử lý theo thứ tự ID để tránh deadlock giữa đơn có nhiều công thức chung.
 
 ## SePay sandbox
 
@@ -54,8 +56,10 @@ và ghi `EARN` trong cùng transaction. Gửi lại cùng `id` SePay là thao t�
 `001_schema.sql` định nghĩa `ingredients`, công thức theo size (`product_recipes`),
 công thức topping (`topping_recipes`) và lượng đã giữ theo đơn
 (`order_ingredient_reservations`). Tạo đơn trừ nguyên liệu theo công thức trong cùng
-transaction; hủy/thất bại sẽ hoàn đúng lượng đã giữ. `products.stock` là đường tương thích
-cho sản phẩm chưa có công thức nguyên liệu.
+transaction; hủy/thất bại sẽ hoàn đúng lượng đã giữ. Sản phẩm chưa có đủ công thức sẽ bị từ chối;
+không có tồn kho dự phòng ở cấp sản phẩm.
+
+`010_product_inventory.sql` loại bỏ cột tồn kho cũ khỏi `products` trên DB đã tồn tại; `products.version` được giữ nguyên vì tương thích schema, không dùng khóa tồn kho. Khóa lạc quan dùng `ingredients.version`.
 
 `006_recipe_data.sql` nạp công thức chính thức của menu: định lượng gốc là size S, size M
 bằng 125% và size L bằng 150%, làm tròn lên từng nguyên liệu. Tồn đầu kỳ
@@ -74,7 +78,7 @@ Topping được quy ước 50 gram trân châu và 30 gram kem sữa mỗi ph�
 | payments             |         82 |
 | loyalty_transactions |         48 |
 
-Mỗi trạng thái đơn có 12 bản ghi: PENDING, PAYMENT_FAILED, PAID, PREPARING, READY, COMPLETED, CANCELLED. Có thanh toán WALLET/CARD, retry sau thất bại, PROCESSING, đơn chưa thanh toán quá hạn, sản phẩm stock=0/1/2 và sản phẩm còn nhiều. Ảnh vẫn NULL theo yêu cầu.
+Mỗi trạng thái đơn có 12 bản ghi: PENDING, PAYMENT_FAILED, PAID, PREPARING, READY, COMPLETED, CANCELLED. Có thanh toán WALLET/CARD, retry sau thất bại, PROCESSING và đơn chưa thanh toán quá hạn. Ảnh vẫn NULL theo yêu cầu.
 
 Khách mẫu: `khach01@brewlite.test` đến `khach24@brewlite.test`. Mật khẩu chung **BrewLite123!**, chỉ lưu bcrypt hash trong SQL. Đăng nhập được qua `POST /auth/login` hoặc trang `/login`, và dùng được để test DB.
 

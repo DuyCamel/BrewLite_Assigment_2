@@ -1,7 +1,6 @@
-// TV4 — Model Inventory: nơi viết SQL đọc/sửa tồn kho (cột stock, version của products).
+// TV4 — Model Inventory: nơi viết SQL đọc/sửa tồn kho nguyên liệu.
 // Không tự mở transaction; chỉ dùng PoolClient do service truyền vào.
 import { ConflictException, Injectable } from "@nestjs/common";
-import type { StockSnapshot } from "../types/order.types.js";
 import type { PoolClient } from "../types/contracts.js";
 import type { OrderLine } from "../types/contracts.js";
 
@@ -11,11 +10,7 @@ export class InventoryModel {
     items: OrderLine[],
     orderId: string,
     transaction: PoolClient,
-  ): Promise<boolean> {
-    const schema = await transaction.query<{ exists: boolean }>(
-      "SELECT to_regclass('public.product_recipes') IS NOT NULL AS exists",
-    );
-    if (!schema.rows[0]?.exists) return false;
+  ): Promise<void> {
     const invalidRecipe = await transaction.query<{ invalid: boolean }>(
       `WITH requested AS (
          SELECT item->>'productId' AS product_id,
@@ -81,7 +76,8 @@ export class InventoryModel {
        )
        SELECT "ingredientId", SUM(quantity)::int AS quantity
        FROM recipe_rows
-       GROUP BY "ingredientId"`,
+       GROUP BY "ingredientId"
+       ORDER BY "ingredientId"`,
       [JSON.stringify(items)],
     );
     if (result.rows.length === 0) {
@@ -91,16 +87,29 @@ export class InventoryModel {
     }
 
     for (const row of result.rows) {
-      const updated = await transaction.query(
-        `UPDATE ingredients
-         SET stock = stock - $2, version = version + 1
-         WHERE id = $1 AND stock >= $2`,
-        [row.ingredientId, row.quantity],
-      );
-      if (updated.rowCount !== 1) {
-        throw new ConflictException(
-          `Nguyên liệu ${row.ingredientId} không đủ tồn kho`,
+      let reserved = false;
+      while (!reserved) {
+        const current = await transaction.query<{
+          stock: number;
+          version: number;
+        }>("SELECT stock, version FROM ingredients WHERE id = $1", [
+          row.ingredientId,
+        ]);
+        const snapshot = current.rows[0];
+        if (!snapshot || snapshot.stock < row.quantity) {
+          throw new ConflictException(
+            `Nguyên liệu ${row.ingredientId} không đủ tồn kho`,
+          );
+        }
+        const updated = await transaction.query(
+          `UPDATE ingredients
+           SET stock = stock - $2, version = version + 1
+           WHERE id = $1 AND stock >= $2 AND version = $3`,
+          [row.ingredientId, row.quantity, snapshot.version],
         );
+        if (updated.rowCount === 1) {
+          reserved = true;
+        }
       }
       await transaction.query(
         `INSERT INTO order_ingredient_reservations(order_id, ingredient_id, quantity)
@@ -108,23 +117,6 @@ export class InventoryModel {
         [orderId, row.ingredientId, row.quantity],
       );
     }
-    return true;
-  }
-
-  // Khóa lạc quan: chỉ trừ khi đủ hàng và version chưa bị ai đổi. true = trừ được.
-  async decreaseStock(
-    productId: string,
-    quantity: number,
-    expectedVersion: number,
-    transaction: PoolClient,
-  ): Promise<boolean> {
-    const result = await transaction.query(
-      `UPDATE products
-       SET stock = stock - $2, version = version + 1
-       WHERE id = $1 AND stock >= $2 AND version = $3`,
-      [productId, quantity, expectedVersion],
-    );
-    return result.rowCount === 1;
   }
 
   // Hoàn tồn đúng một lần nhờ cờ orders.stock_released. true = lần này vừa hoàn.
@@ -141,50 +133,28 @@ export class InventoryModel {
     if (marked.rowCount !== 1) {
       return false; // đã có người hoàn trước đó
     }
-    const schema = await transaction.query<{ exists: boolean }>(
-      "SELECT to_regclass('public.order_ingredient_reservations') IS NOT NULL AS exists",
+    const reservations = await transaction.query<{
+      ingredientId: string;
+      quantity: number;
+    }>(
+      `SELECT ingredient_id AS "ingredientId", quantity
+       FROM order_ingredient_reservations
+       WHERE order_id = $1
+       ORDER BY ingredient_id`,
+      [orderId],
     );
-    const ingredientResult = schema.rows[0]?.exists
-      ? await transaction.query(
-          `UPDATE ingredients i
-       SET stock = i.stock + r.quantity, version = i.version + 1
-       FROM order_ingredient_reservations r
-       WHERE r.order_id = $1 AND r.ingredient_id = i.id`,
-          [orderId],
-        )
-      : { rowCount: 0 };
-    if (ingredientResult.rowCount && ingredientResult.rowCount > 0) {
+    for (const reservation of reservations.rows) {
       await transaction.query(
-        "DELETE FROM order_ingredient_reservations WHERE order_id = $1",
-        [orderId],
+        `UPDATE ingredients
+         SET stock = stock + $2, version = version + 1
+         WHERE id = $1`,
+        [reservation.ingredientId, reservation.quantity],
       );
-      return true;
     }
     await transaction.query(
-      `UPDATE products p
-       SET stock = p.stock + r.qty, version = p.version + 1
-       FROM (
-         SELECT product_id, SUM(quantity) AS qty
-         FROM order_items
-         WHERE order_id = $1
-         GROUP BY product_id
-       ) r
-       WHERE r.product_id = p.id`,
+      "DELETE FROM order_ingredient_reservations WHERE order_id = $1",
       [orderId],
     );
     return true;
-  }
-
-  async findStock(
-    productId: string,
-    transaction: PoolClient,
-  ): Promise<StockSnapshot | null> {
-    const result = await transaction.query(
-      `SELECT stock, version
-       FROM products
-       WHERE id = $1`,
-      [productId],
-    );
-    return (result.rows[0] as StockSnapshot) ?? null;
   }
 }

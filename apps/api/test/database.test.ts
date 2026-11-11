@@ -62,11 +62,29 @@ test("seed có đủ dữ liệu, trạng thái và mật khẩu hash dùng đư
   );
   assert.ok(compareSync("BrewLite123!", user.rows[0].password_hash));
 });
-test("schema và seed có thể chạy lại mà không tăng dữ liệu/tồn/điểm", async () => {
+test("migration bỏ tồn kho sản phẩm nhưng giữ version", async () => {
+  await db.query(
+    "INSERT INTO ingredients (id, name, unit, stock) VALUES ('inventory-migration-check', 'Migration check', 'piece', 17)",
+  );
+  await db.query("UPDATE products SET version = 42 WHERE id = 'ca-phe-sua'");
+  await db.exec(sql("010_product_inventory.sql"));
+  await db.exec(sql("010_product_inventory.sql"));
+  const columns = await db.query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_name = 'products' AND column_name IN ('stock', 'version')`,
+  );
+  assert.deepEqual(columns.rows.map((row) => row.column_name), ["version"]);
+  const preserved = await db.query<{ stock: number; version: number }>(
+    `SELECT i.stock, p.version
+     FROM ingredients i CROSS JOIN products p
+     WHERE i.id = 'inventory-migration-check' AND p.id = 'ca-phe-sua'`,
+  );
+  assert.deepEqual(preserved.rows, [{ stock: 17, version: 42 }]);
+});
+test("seed có thể chạy lại mà không tăng dữ liệu/điểm", async () => {
   const before = await db.query(
     "SELECT sum(loyalty_points)::int points FROM users",
   );
-  await db.exec(sql("001_schema.sql"));
   await db.exec(sql("002_seed.sql"));
   const after = await db.query(
     "SELECT sum(loyalty_points)::int points FROM users",
@@ -78,10 +96,14 @@ test("schema và seed có thể chạy lại mà không tăng dữ liệu/tồn/
     84,
   );
 });
-test("Chặn tồn âm và option null/size trùng", async () => {
-  await rejectSql(
-    "UPDATE products SET stock=-1 WHERE id='ca-phe-sua'",
-    "23514",
+test("Sản phẩm không lưu tồn kho nhưng giữ version; option null/size trùng bị chặn", async () => {
+  const productInventoryColumns = await db.query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_name = 'products' AND column_name IN ('stock', 'version')`,
+  );
+  assert.deepEqual(
+    productInventoryColumns.rows.map((row) => row.column_name),
+    ["version"],
   );
   await rejectSql(
     `UPDATE products SET sizes='[{"name":"S","extraPrice":null}]' WHERE id='ca-phe-sua'`,

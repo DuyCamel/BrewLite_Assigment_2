@@ -8,6 +8,7 @@ import { OrdersService } from "../../apps/api/src/services/orders.service.js";
 import { PromotionsService } from "../../apps/api/src/services/promotions.service.js";
 import {
   PRODUCT_ID,
+  PRODUCT_INGREDIENT_ID,
   USER_ID,
   createTestDb,
   makeFakeDatabase,
@@ -41,7 +42,7 @@ test("createOrder tạo đơn trước reservation nguyên liệu có khóa ngo�
     [result.orderId],
   );
   assert.equal(reservation.rows.length, 1);
-  assert.equal(reservation.rows[0].ingredient_id, `legacy-product-${PRODUCT_ID}`);
+  assert.equal(reservation.rows[0].ingredient_id, PRODUCT_INGREDIENT_ID);
   assert.equal(reservation.rows[0].quantity, 1);
 
   const ingredient = await db.query<{ stock: number }>(

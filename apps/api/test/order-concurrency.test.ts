@@ -32,8 +32,8 @@ async function resetData(stock: number) {
     );
   }
   await db.query(
-    `INSERT INTO products (id, name, category, price, stock, sizes)
-     VALUES ($1, 'Trà tranh chấp', 'Test', 20000, 0, '[{"name":"S","extraPrice":0}]')`,
+    `INSERT INTO products (id, name, category, price, sizes)
+     VALUES ($1, 'Trà tranh chấp', 'Test', 20000, '[{"name":"S","extraPrice":0}]')`,
     [PRODUCT],
   );
   await db.query(
@@ -60,14 +60,14 @@ async function cleanup() {
   await db.query("DELETE FROM users WHERE id = ANY($1)", [ids]);
 }
 
-const place = (userId: string) =>
+const place = (userId: string, quantity = 1) =>
   orders.createOrder(userId, {
-    items: [{ productId: PRODUCT, size: "S", toppingIds: [], quantity: 1 }],
+    items: [{ productId: PRODUCT, size: "S", toppingIds: [], quantity }],
   });
 
 async function readState() {
-  const stock = await db.query<{ stock: number }>(
-    "SELECT stock FROM ingredients WHERE id = $1",
+  const stock = await db.query<{ stock: number; version: number }>(
+    "SELECT stock, version FROM ingredients WHERE id = $1",
     [INGREDIENT],
   );
   const created = await db.query<{ n: number }>(
@@ -83,6 +83,7 @@ async function readState() {
   );
   return {
     stock: stock.rows[0].stock,
+    version: stock.rows[0].version,
     orders: created.rows[0].n,
     reserved: reserved.rows[0].n,
   };
@@ -116,8 +117,25 @@ test("hai khách cùng đặt món còn đúng 1 phần: một người thành c
 
   const state = await readState();
   assert.equal(state.stock, 0, "tồn về 0, không âm");
+  assert.equal(state.version, 1, "version tăng đúng theo lần giữ nguyên liệu");
   assert.equal(state.orders, 1, "chỉ một đơn được tạo, đơn thua đã rollback");
   assert.equal(state.reserved, 1);
+});
+
+test("hai khách đặt cùng lúc 2 ly khi chỉ còn 2: một đơn thành công, đơn kia rollback toàn bộ", { skip: !enabled && "đặt RUN_PG_TESTS=1 để chạy trên PostgreSQL thật" }, async () => {
+  await resetData(2);
+  const settled = await Promise.allSettled([
+    place(USERS[0], 2),
+    place(USERS[1], 2),
+  ]);
+  assert.equal(settled.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(settled.filter((result) => result.status === "rejected").length, 1);
+
+  const state = await readState();
+  assert.equal(state.stock, 0);
+  assert.equal(state.version, 1);
+  assert.equal(state.orders, 1);
+  assert.equal(state.reserved, 2);
 });
 
 test("10 khách cùng đặt khi còn 3 phần: đúng 3 thành công, 7 bị 409, tồn không bao giờ âm", { skip: !enabled && "đặt RUN_PG_TESTS=1 để chạy trên PostgreSQL thật" }, async () => {
@@ -133,6 +151,7 @@ test("10 khách cùng đặt khi còn 3 phần: đúng 3 thành công, 7 bị 40
 
   const state = await readState();
   assert.equal(state.stock, 0);
+  assert.equal(state.version, 3);
   assert.equal(state.orders, 3);
   assert.equal(state.reserved, 3);
 });

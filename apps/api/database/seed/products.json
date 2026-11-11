@@ -7,7 +7,6 @@
     "description": "Cà phê đậm vị, sữa đặc ngọt dịu.",
     "badge": "Bán chạy",
     "imageUrl": "/images/products/ca-phe-sua.jpg",
-    "stock": 50,
     "sizes": [
       {
         "name": "S",
@@ -43,7 +42,6 @@
     "description": "Sữa béo nhẹ hòa cùng hương cà phê.",
     "badge": "Yêu thích",
     "imageUrl": "/images/products/bac_xiu.webp",
-    "stock": 50,
     "sizes": [
       {
         "name": "S",
@@ -79,7 +77,6 @@
     "description": "Espresso cùng nước, vị thanh và hậu đắng.",
     "badge": "",
     "imageUrl": "/images/products/americano.jpg",
-    "stock": 50,
     "sizes": [
       {
         "name": "S",
@@ -115,7 +112,6 @@
     "description": "Espresso cân bằng cùng sữa tươi.",
     "badge": "",
     "imageUrl": "/images/products/latte-da.jpg",
-    "stock": 50,
     "sizes": [
       {
         "name": "S",
@@ -151,7 +147,6 @@
     "description": "Trà thơm, đào ngọt và hương sả nhẹ.",
     "badge": "Bán chạy",
     "imageUrl": "/images/products/tra_dao_cam_sa.jpg",
-    "stock": 50,
     "sizes": [
       {
         "name": "S",
@@ -187,7 +182,6 @@
     "description": "Vị trà thanh hòa cùng vải ngọt mát.",
     "badge": "",
     "imageUrl": "/images/products/tra_vai.jpg",
-    "stock": 50,
     "sizes": [
       {
         "name": "S",
@@ -223,7 +217,6 @@
     "description": "Matcha thơm dịu cùng sữa tươi béo nhẹ.",
     "badge": "Mới",
     "imageUrl": "/images/products/matcha_latte.jpg",
-    "stock": 50,
     "sizes": [
       {
         "name": "S",
@@ -259,7 +252,6 @@
     "description": "Cacao đậm đà, sữa tươi ngọt vừa.",
     "badge": "",
     "imageUrl": "/images/products/choco_latte.jpg",
-    "stock": 50,
     "sizes": [
       {
         "name": "S",
@@ -295,7 +287,6 @@
     "description": "Espresso, pha mới khi bạn đặt.",
     "badge": "Mới",
     "imageUrl": "/images/products/espresso.jpg",
-    "stock": 0,
     "sizes": [
       {
         "name": "S",
@@ -331,7 +322,6 @@
     "description": "Cappuccino, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/cappuchino.jpg",
-    "stock": 1,
     "sizes": [
       {
         "name": "S",
@@ -367,7 +357,6 @@
     "description": "Cà phê đen, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/cafe_den.webp",
-    "stock": 32,
     "sizes": [
       {
         "name": "S",
@@ -403,7 +392,6 @@
     "description": "Cold brew, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/cold_brew.jpg",
-    "stock": 33,
     "sizes": [
       {
         "name": "S",
@@ -439,7 +427,6 @@
     "description": "Caramel latte, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/caramel_latte.jpg",
-    "stock": 34,
     "sizes": [
       {
         "name": "S",
@@ -475,7 +462,6 @@
     "description": "Vanilla latte, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/Vanilla_Latte.jpg",
-    "stock": 35,
     "sizes": [
       {
         "name": "S",
@@ -511,7 +497,6 @@
     "description": "Mocha, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/mocha.jpg",
-    "stock": 36,
     "sizes": [
       {
         "name": "S",
@@ -547,7 +532,6 @@
     "description": "Cà phê dừa, pha mới khi bạn đặt.",
     "badge": "Mới",
     "imageUrl": "/images/products/cafe_dua.jpeg",
-    "stock": 37,
     "sizes": [
       {
         "name": "S",
@@ -583,7 +567,6 @@
     "description": "Trà chanh, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/tra_chanh.jpg",
-    "stock": 38,
     "sizes": [
       {
         "name": "S",
@@ -619,7 +602,6 @@
     "description": "Trà tắc, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/tra_tac.jpg",
-    "stock": 39,
     "sizes": [
       {
         "name": "S",
@@ -655,7 +637,6 @@
     "description": "Trà dâu, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/tra_dau.jpg",
-    "stock": 0,
     "sizes": [
       {
         "name": "S",
@@ -691,7 +672,6 @@
     "description": "Trà xoài, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/tra_xoai.jpg",
-    "stock": 1,
     "sizes": [
       {
         "name": "S",
@@ -727,7 +707,6 @@
     "description": "Trà chanh dây, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/tra_chanh_day.webp",
-    "stock": 42,
     "sizes": [
       {
         "name": "S",
@@ -763,7 +742,6 @@
     "description": "Trà ổi hồng, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/tra_oi_hong.png",
-    "stock": 43,
     "sizes": [
       {
         "name": "S",
@@ -799,7 +777,6 @@
     "description": "Trà sen, pha mới khi bạn đặt.",
     "badge": "Mới",
     "imageUrl": "/images/products/trasen.jpg",
-    "stock": 44,
     "sizes": [
       {
         "name": "S",
@@ -835,7 +812,6 @@
     "description": "Trà lựu, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/tra_luu.jpg",
-    "stock": 45,
     "sizes": [
       {
         "name": "S",
@@ -871,7 +847,6 @@
     "description": "Matcha đá, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/matcha_da_xay.png",
-    "stock": 46,
     "sizes": [
       {
         "name": "S",
@@ -907,7 +882,6 @@
     "description": "Matcha espresso, pha mới khi bạn đặt.",
     "badge": "Mới",
     "imageUrl": "/images/products/matcha_espresso.png",
-    "stock": 2,
     "sizes": [
       {
         "name": "S",
@@ -943,7 +917,6 @@
     "description": "Cacao nóng, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/cacao_nong.jpg",
-    "stock": 52,
     "sizes": [
       {
         "name": "S",
@@ -979,7 +952,6 @@
     "description": "Sữa tươi, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/sua.jpg",
-    "stock": 53,
     "sizes": [
       {
         "name": "S",
@@ -1015,7 +987,6 @@
     "description": "Sữa tươi trân châu, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/sua_tuoi_tran_chau.jpeg",
-    "stock": 54,
     "sizes": [
       {
         "name": "S",
@@ -1051,7 +1022,6 @@
     "description": "Soda chanh, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/soda_chanh.webp",
-    "stock": 55,
     "sizes": [
       {
         "name": "S",
@@ -1087,7 +1057,6 @@
     "description": "Soda việt quất, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/soda_vietquoc.jpg",
-    "stock": 56,
     "sizes": [
       {
         "name": "S",
@@ -1123,7 +1092,6 @@
     "description": "Nước cam, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/cam_ep.jpg",
-    "stock": 57,
     "sizes": [
       {
         "name": "S",
@@ -1159,7 +1127,6 @@
     "description": "Nước dừa, pha mới khi bạn đặt.",
     "badge": "Mới",
     "imageUrl": "/images/products/nuoc_dua.webp",
-    "stock": 58,
     "sizes": [
       {
         "name": "S",
@@ -1195,7 +1162,6 @@
     "description": "Sữa chua dâu, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/sua_chua_dau.jpg",
-    "stock": 59,
     "sizes": [
       {
         "name": "S",
@@ -1231,7 +1197,6 @@
     "description": "Sữa chua xoài, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/sua_chua_xoai.png",
-    "stock": 60,
     "sizes": [
       {
         "name": "S",
@@ -1267,7 +1232,6 @@
     "description": "Nước suối, pha mới khi bạn đặt.",
     "badge": "",
     "imageUrl": "/images/products/nuoc_khoang.jpg",
-    "stock": 61,
     "sizes": [
       {
         "name": "S",

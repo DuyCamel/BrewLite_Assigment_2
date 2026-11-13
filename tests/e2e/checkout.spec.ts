@@ -5,6 +5,7 @@ import {
   type APIRequestContext,
   type APIResponse,
   type Page,
+  type Response,
 } from "@playwright/test";
 
 // Combined Anh/MinhTri coverage. Run only against the disposable E2E stack.
@@ -37,7 +38,7 @@ type Order = {
 };
 type Payment = { id: string; status: "PROCESSING" | "SUCCEEDED" | "FAILED" };
 
-async function json<T>(response: APIResponse): Promise<T> {
+async function json<T>(response: APIResponse | Response): Promise<T> {
   expect(
     response.ok(),
     `${response.url()}: ${response.status()} ${await response.text()}`,
@@ -181,6 +182,29 @@ test("UI checkout preserves the cart, displays the correct QR and pays exactly o
   expect(pending.payments).toHaveLength(0);
   expect(pending.pointsEarned).toBeNull();
 
+  const confirmation = page.waitForResponse(
+    (response) =>
+      response.url() === `${API}/payments` &&
+      response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Xác nhận & Thanh toán" }).click();
+  const session = await json<{ id: string; method: string; status: string }>(
+    await confirmation,
+  );
+  expect(session).toMatchObject({ method: "SEPAY", status: "PROCESSING" });
+  const processing = await orderDetail(request, user, id!);
+  expect(processing.status).toBe("PENDING");
+  expect(processing.payments).toEqual([
+    expect.objectContaining({
+      id: session.id,
+      method: "SEPAY",
+      status: "PROCESSING",
+      amount: TOTAL,
+    }),
+  ]);
+  expect(processing.pointsEarned).toBeNull();
+  expect((await request.post(`${API}/orders/${id}/cancel`, { headers: user.headers })).status()).toBe(409);
+
   const qr = page.getByRole("img", { name: "Mã QR chuyển khoản VietQR" });
   await expect(qr).toBeVisible();
   const qrUrl = new URL((await qr.getAttribute("src"))!);
@@ -207,9 +231,18 @@ test("UI checkout preserves the cart, displays the correct QR and pays exactly o
   await expect.poll(() => cart(page)).toEqual([]);
   const paid = await orderDetail(request, user, id!);
   expect(paid.status).toBe("PAID");
-  expect(paid.payments).toEqual([
-    expect.objectContaining({ status: "SUCCEEDED", amount: TOTAL }),
-  ]);
+  expect(paid.payments).toHaveLength(2);
+  expect(paid.payments).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: session.id,
+        method: "SEPAY",
+        status: "FAILED",
+        amount: TOTAL,
+      }),
+      expect.objectContaining({ status: "SUCCEEDED", amount: TOTAL }),
+    ]),
+  );
   expect(paid.pointsEarned).toBe(Math.floor(TOTAL / 10_000));
   const duplicate = await json<{ duplicate: boolean }>(
     await webhook(request, payload),
@@ -236,12 +269,11 @@ test("unpaid order keeps the cart and cancellation affects only that order", asy
     `/login?returnUrl=${encodeURIComponent(`/payment?orderId=${order.id}`)}`,
   );
   await login(page, user.email);
-  await page.getByRole("button", { name: "Xác nhận & Thanh toán" }).click();
-
   await expect(
-    page.getByRole("img", { name: "Mã QR chuyển khoản VietQR" }),
+    page.getByRole("button", { name: "Xác nhận & Thanh toán" }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Xem trạng thái thanh toán" }).click();
+  // Keep this cancellation case free of PROCESSING payments; confirmation is covered above.
+  await page.goto(`/payment-status?orderId=${order.id}`);
   await expect(
     page.getByRole("heading", { name: "Đang chờ xác nhận thanh toán" }),
   ).toBeVisible();
@@ -250,7 +282,6 @@ test("unpaid order keeps the cart and cancellation affects only that order", asy
   expect(pending.status).toBe("PENDING");
   expect(pending.payments).toHaveLength(0);
   expect(pending.pointsEarned).toBeNull();
-  await page.getByRole("button", { name: "Xác nhận & Thanh toán" }).click();
   await json(
     await request.post(`${API}/orders/${order.id}/cancel`, {
       headers: user.headers,

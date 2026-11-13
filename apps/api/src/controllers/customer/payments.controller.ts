@@ -28,7 +28,7 @@ function parsePaymentInput(body: unknown): PaymentInput {
   ) {
     throw new BadRequestException("Thông tin thanh toán không hợp lệ");
   }
-  return { orderId: value.orderId.trim(), method: value.method as any };
+  return { orderId: value.orderId.trim(), method: value.method };
 }
 
 function currentUserId(request: AuthenticatedRequest): string {

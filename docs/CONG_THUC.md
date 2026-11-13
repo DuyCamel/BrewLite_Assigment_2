@@ -36,5 +36,5 @@ với đơn hàng. Hủy đơn hoặc thanh toán thất bại sẽ hoàn đúng
 
 Định lượng chi tiết của 36 sản phẩm theo bảng nhóm cung cấp được khai báo trong migration
 `006_recipe_data.sql`, với cùng mã sản phẩm trong `apps/api/database/seed/products.json`.
-Không dùng `products.stock` làm tồn chính sau khi migration 006 đã chạy; nguồn tồn chính
-là `ingredients.stock`, còn `products.stock` chỉ phục vụ tương thích dữ liệu cũ.
+Tồn kho được quản lý duy nhất ở `ingredients.stock`; khả năng bán món được tính từ công thức
+theo size và topping. Sản phẩm không có cột tồn kho riêng.

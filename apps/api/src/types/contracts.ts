@@ -9,13 +9,11 @@ export interface LoginInput {
   email: string;
   password: string;
 }
-export interface StockItem {
+export interface OrderLine {
   productId: string;
-  quantity: number;
-}
-export interface OrderLine extends StockItem {
   size: string;
   toppingIds: string[];
+  quantity: number;
 }
 export interface CreateOrderInput {
   items: OrderLine[];
@@ -27,7 +25,7 @@ export interface PromotionInput {
 }
 export interface PaymentInput {
   orderId: string;
-  method: "WALLET" | "CARD";
+  method: "WALLET" | "CARD" | "SEPAY";
 }
 export type PaymentResult = "SUCCEEDED" | "FAILED" | "UNKNOWN";
 export type OrderStatus =

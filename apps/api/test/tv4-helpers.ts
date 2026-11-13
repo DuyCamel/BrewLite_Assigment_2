@@ -10,6 +10,8 @@ import type { PoolClient } from "../src/types/contracts.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const USER_ID = "demo-user-01";
 export const PRODUCT_ID = "tv4-tra";
+export const PRODUCT_INGREDIENT_ID = `test-ingredient-${PRODUCT_ID}`;
+export const TOPPING_INGREDIENT_ID = `test-topping-${PRODUCT_ID}-tc`;
 export const UNIT_S = 20000; // giá món size S
 export const EXTRA_M = 5000; // phụ phí size M
 export const TOPPING_TC = 7000; // topping "tc"
@@ -21,11 +23,12 @@ export async function createTestDb(): Promise<PGlite> {
   await db.exec(sql("001_schema.sql"));
   await db.exec(sql("007_order_payment_codes.sql"));
   await db.exec(sql("009_qr_reissue.sql"));
+  await db.exec(sql("010_product_inventory.sql"));
   await db.exec(sql("002_seed.sql"));
-  // Sản phẩm riêng để test không phụ thuộc tồn kho của dữ liệu mẫu TV1.
+  // Sản phẩm riêng với tồn kho theo nguyên liệu để các test không phụ thuộc menu mẫu.
   await db.query(
-    `INSERT INTO products (id, name, category, price, stock, sizes, toppings)
-     VALUES ($1, 'Trà TV4', 'test', $2, 10, $3::jsonb, $4::jsonb)`,
+    `INSERT INTO products (id, name, category, price, sizes, toppings)
+     VALUES ($1, 'Trà TV4', 'test', $2, $3::jsonb, $4::jsonb)`,
     [
       PRODUCT_ID,
       UNIT_S,
@@ -36,12 +39,22 @@ export async function createTestDb(): Promise<PGlite> {
       JSON.stringify([{ id: "tc", name: "Trân châu", price: TOPPING_TC }]),
     ],
   );
-  // 001_schema.sql chỉ tạo công thức tương thích cho sản phẩm có sẵn lúc chạy; sản phẩm TV4 thêm sau nên
-  // chạy lại đúng khối backfill đó (idempotent) để món có công thức nguyên liệu.
-  const schema = sql("001_schema.sql");
-  const start = schema.search(/DO \$\$\r?\nDECLARE p RECORD; s TEXT;/);
-  const end = schema.indexOf("END $$;", start) + "END $$;".length;
-  await db.exec(schema.slice(start, end));
+  await db.query(
+    `INSERT INTO ingredients (id, name, unit, stock)
+     VALUES ($1, 'Nguyên liệu test TV4', 'piece', 10),
+            ($2, 'Topping test TV4', 'piece', 1000)`,
+    [PRODUCT_INGREDIENT_ID, TOPPING_INGREDIENT_ID],
+  );
+  await db.query(
+    `INSERT INTO product_recipes (product_id, size, ingredient_id, quantity)
+     VALUES ($1, 'S', $2, 1), ($1, 'M', $2, 1)`,
+    [PRODUCT_ID, PRODUCT_INGREDIENT_ID],
+  );
+  await db.query(
+    `INSERT INTO topping_recipes (product_id, topping_id, ingredient_id, quantity)
+     VALUES ($1, 'tc', $2, 1)`,
+    [PRODUCT_ID, TOPPING_INGREDIENT_ID],
+  );
   return db;
 }
 
@@ -118,35 +131,18 @@ export async function insertPromotion(
   );
 }
 
-// Tồn của món TV4: nếu có nguyên liệu tương thích legacy-product-<id> thì đọc ở đó (đường đặt đơn mới),
-// không có thì đọc products.stock (DB ở test/ingredient-flow dùng công thức thật).
 export async function readStock(database: PGlite): Promise<number> {
-  const ingredient = await database.query<{ stock: number }>(
-    "SELECT stock FROM ingredients WHERE id = $1",
-    [`legacy-product-${PRODUCT_ID}`],
-  );
-  if (ingredient.rows[0]) return ingredient.rows[0].stock;
-  return readProductStock(database);
-}
-
-// Tồn ở cột products.stock (đường cũ: reserveStock không có orderId).
-export async function readProductStock(database: PGlite): Promise<number> {
   const result = await database.query<{ stock: number }>(
-    "SELECT stock FROM products WHERE id = $1",
-    [PRODUCT_ID],
+    "SELECT stock FROM ingredients WHERE id = $1",
+    [PRODUCT_INGREDIENT_ID],
   );
   return result.rows[0].stock;
 }
 
 export async function setStock(database: PGlite, stock: number): Promise<void> {
-  // Sau khi chuyển sang tồn nguyên liệu, món TV4 lấy tồn từ nguyên liệu tương thích legacy-product-<id> (1 đơn vị/ly).
-  await database.query("UPDATE products SET stock = $1 WHERE id = $2", [
-    stock,
-    PRODUCT_ID,
-  ]);
   await database.query("UPDATE ingredients SET stock = $1 WHERE id = $2", [
     stock,
-    `legacy-product-${PRODUCT_ID}`,
+    PRODUCT_INGREDIENT_ID,
   ]);
 }
 
@@ -187,6 +183,7 @@ export async function createIngredientTestDb(): Promise<PGlite> {
     "001_schema.sql",
     "007_order_payment_codes.sql",
     "009_qr_reissue.sql",
+    "010_product_inventory.sql",
     "002_seed.sql",
     "003_catalog.sql",
     "004_image_urls.sql",
@@ -203,9 +200,9 @@ export async function createIngredientTestDb(): Promise<PGlite> {
     { id: "tc", name: "Trân châu", price: TOPPING_TC },
   ]);
   await database.query(
-    `INSERT INTO products (id, name, category, price, stock, sizes, toppings)
-     VALUES ($1, 'Trà TV4', 'test', $2, 10, $3::jsonb, $4::jsonb),
-            ($5, 'Món chưa có công thức', 'test', $2, 10, $3::jsonb, '[]'::jsonb)`,
+    `INSERT INTO products (id, name, category, price, sizes, toppings)
+     VALUES ($1, 'Trà TV4', 'test', $2, $3::jsonb, $4::jsonb),
+            ($5, 'Món chưa có công thức', 'test', $2, $3::jsonb, '[]'::jsonb)`,
     [PRODUCT_ID, UNIT_S, sizes, toppings, NO_RECIPE_PRODUCT_ID],
   );
   await database.query(

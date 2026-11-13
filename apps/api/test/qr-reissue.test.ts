@@ -66,8 +66,8 @@ test("QR chi duoc cap lai mot lan; ma cu bi tu choi, het luot hai thi huy va hoa
     }
     await pg.exec(`INSERT INTO users (id, email, password_hash, display_name)
       VALUES ('customer-1', 'test@example.com', '$2b$10$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'Customer');
-      INSERT INTO products (id, name, category, price, stock, sizes)
-      VALUES ('drink-1', 'Drink', 'Drinks', 80000, 10, '[{"name":"S","extraPrice":0}]');
+      INSERT INTO products (id, name, category, price, sizes)
+      VALUES ('drink-1', 'Drink', 'Drinks', 80000, '[{"name":"S","extraPrice":0}]');
       INSERT INTO ingredients (id, name, unit, stock) VALUES ('ingredient-1', 'Drink', 'piece', 10);
       INSERT INTO product_recipes (product_id, size, ingredient_id, quantity)
       VALUES ('drink-1', 'S', 'ingredient-1', 1);`);

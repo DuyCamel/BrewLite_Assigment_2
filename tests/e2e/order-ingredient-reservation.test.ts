@@ -1,25 +1,20 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { after, test } from "node:test";
-import { InventoryModel } from "../src/models/inventory.model.js";
-import { OrderModel } from "../src/models/order.model.js";
-import { PromotionModel } from "../src/models/promotion.model.js";
-import { InventoryService } from "../src/services/inventory.service.js";
-import { OrdersService } from "../src/services/orders.service.js";
-import { PromotionsService } from "../src/services/promotions.service.js";
+import { InventoryModel } from "../../apps/api/src/models/inventory.model.js";
+import { OrderModel } from "../../apps/api/src/models/order.model.js";
+import { PromotionModel } from "../../apps/api/src/models/promotion.model.js";
+import { InventoryService } from "../../apps/api/src/services/inventory.service.js";
+import { OrdersService } from "../../apps/api/src/services/orders.service.js";
+import { PromotionsService } from "../../apps/api/src/services/promotions.service.js";
 import {
   PRODUCT_ID,
+  PRODUCT_INGREDIENT_ID,
   USER_ID,
   createTestDb,
   makeFakeDatabase,
-} from "./tv4-helpers.js";
+} from "../../apps/api/test/tv4-helpers.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const db = await createTestDb();
-const readSql = (name: string) =>
-  readFileSync(resolve(__dirname, "../database", name), "utf8");
 
 const orders = new OrdersService(
   makeFakeDatabase(db),
@@ -47,7 +42,7 @@ test("createOrder tạo đơn trước reservation nguyên liệu có khóa ngo�
     [result.orderId],
   );
   assert.equal(reservation.rows.length, 1);
-  assert.equal(reservation.rows[0].ingredient_id, `legacy-product-${PRODUCT_ID}`);
+  assert.equal(reservation.rows[0].ingredient_id, PRODUCT_INGREDIENT_ID);
   assert.equal(reservation.rows[0].quantity, 1);
 
   const ingredient = await db.query<{ stock: number }>(

@@ -27,7 +27,6 @@ import {
   makeFakeDatabase,
   makeTx,
   readOrder,
-  readProductStock,
   readStock,
   setStock,
   type Tx,
@@ -162,7 +161,7 @@ async function insertExpiredOrder(
     }
   });
   // Tồn nay nằm ở nguyên liệu: trừ nguyên liệu và ghi bản giữ chỗ để releaseStock hoàn lại đúng.
-  const ingredientId = `legacy-product-${PRODUCT_ID}`;
+  const ingredientId = `test-ingredient-${PRODUCT_ID}`;
   await db.query("UPDATE ingredients SET stock = stock - $1 WHERE id = $2", [
     quantity,
     ingredientId,
@@ -468,28 +467,9 @@ test("preparePaymentRetry: giữ tồn mới rồi đưa PAYMENT_FAILED về PEN
   assert.equal(await readStock(db), 8);
 });
 
-test("InventoryService: reserveStock đủ/thiếu/không tồn tại, hết hàng thì createOrder bị từ chối", async () => {
-  await assert.rejects(
-    () =>
-      tx((c) =>
-        inventory.reserveStock([{ productId: "khong-co", quantity: 1 }], c),
-      ),
-    NotFoundException,
-  );
-
-  await tx((c) =>
-    inventory.reserveStock([{ productId: PRODUCT_ID, quantity: 10 }], c),
-  );
-  assert.equal(await readProductStock(db), 0);
-  await assert.rejects(
-    () =>
-      tx((c) =>
-        inventory.reserveStock([{ productId: PRODUCT_ID, quantity: 1 }], c),
-      ),
-    ConflictException,
-  );
-  assert.equal(await readProductStock(db), 0);
-  // đặt đơn thật lấy tồn từ nguyên liệu: hết nguyên liệu thì bị từ chối
-  await setStock(db, 0);
+test("InventoryService chỉ giữ tồn nguyên liệu theo công thức", async () => {
+  await createOrder(10);
+  assert.equal(await readStock(db), 0);
   await assert.rejects(() => createOrder(1), ConflictException);
+  assert.equal(await readStock(db), 0);
 });

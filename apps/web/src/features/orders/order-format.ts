@@ -54,6 +54,7 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentAttemptStatus, string> = {
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   WALLET: "Ví",
   CARD: "Thẻ",
+  SEPAY: "Chuyển khoản SePay",
 };
 
 const PAID_STATUSES: ReadonlySet<OrderStatus> = new Set([

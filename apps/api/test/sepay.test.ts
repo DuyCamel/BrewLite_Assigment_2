@@ -46,9 +46,16 @@ function createService(isUnexpired = true) {
   const db = {
     withTransaction: async <T>(
       operation: (transaction: PoolClient) => Promise<T>,
-    ) => operation({ 
-        query: async () => ({ rowCount: 1 }) 
-    } as unknown as PoolClient),
+    ) =>
+      operation({
+        query: async (text: string, params: unknown[]) => {
+          assert.match(text, /UPDATE payments SET status = 'FAILED'/);
+          assert.match(text, /WHERE order_id = \$1 AND status = 'PROCESSING'/);
+          assert.deepEqual(params, [orderId]);
+          inserted.push("release-processing");
+          return { rows: [], rowCount: 0 };
+        },
+      } as unknown as PoolClient),
   } as unknown as DatabaseService;
   return { service: new SepayService(db, model), inserted };
 }
@@ -75,7 +82,9 @@ test("SePay accepts the UUID-only reference used by older QR codes", async () =>
       "Apikey test-webhook-key",
     );
     assert.equal(result.orderId, orderId);
-    assert.deepEqual(inserted, ["insert", "paid", "order-paid", "earn"]);
+    assert.deepEqual(inserted, [
+      "release-processing", "insert", "paid", "order-paid", "earn",
+    ]);
   } finally {
     if (previousKey === undefined) delete process.env.SEPAY_WEBHOOK_API_KEY;
     else process.env.SEPAY_WEBHOOK_API_KEY = previousKey;
@@ -127,7 +136,9 @@ test("SePay accepts a DH payment code and resolves the UUID order", async () => 
       "Apikey test-webhook-key",
     );
     assert.equal(result.orderId, orderId);
-    assert.deepEqual(inserted, ["insert", "paid", "order-paid", "earn"]);
+    assert.deepEqual(inserted, [
+      "release-processing", "insert", "paid", "order-paid", "earn",
+    ]);
   } finally {
     if (previousKey === undefined) delete process.env.SEPAY_WEBHOOK_API_KEY;
     else process.env.SEPAY_WEBHOOK_API_KEY = previousKey;

@@ -40,6 +40,7 @@ export async function runDatabase(
                 "008_image_urls_backfill.sql",
                 "009_qr_reissue.sql",
                 "010_product_inventory.sql",
+                "011_sepay_payment_method.sql",
               ].includes(name),
             )
             .sort();

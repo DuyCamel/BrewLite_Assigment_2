@@ -25,7 +25,7 @@ export interface PromotionInput {
 }
 export interface PaymentInput {
   orderId: string;
-  method: "WALLET" | "CARD";
+  method: "WALLET" | "CARD" | "SEPAY";
 }
 export type PaymentResult = "SUCCEEDED" | "FAILED" | "UNKNOWN";
 export type OrderStatus =

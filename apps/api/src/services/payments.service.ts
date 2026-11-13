@@ -51,7 +51,7 @@ export class PaymentsService {
 
         if (order.status !== "PENDING") throw new ConflictException(`Không thể thanh toán đơn hàng đang ở trạng thái ${order.status}`);
         if (await this.orderModel.hasProcessingPayment(input.orderId, client)) {
-          if ((input.method as string) === "SEPAY") {
+          if (input.method === "SEPAY") {
             // Đánh dấu giao dịch cũ là FAILED thay vì xóa nó
             await client.query(`UPDATE payments SET status = 'FAILED', resolved_at = NOW() WHERE order_id = $1 AND status = 'PROCESSING'`, [input.orderId]);
           } else {
@@ -88,7 +88,7 @@ export class PaymentsService {
 
   async reconcilePayment(userId: string, paymentId: string): Promise<PaymentAttemptRecord> {
     const payment = await this.getPaymentStatus(userId, paymentId);
-    if (payment.status !== "PROCESSING") return payment;
+    if (payment.status !== "PROCESSING" || payment.method === "SEPAY") return payment;
     const gatewayStatus = await this.mockGateway.lookupByKey(payment.idempotency_key);
     if (gatewayStatus === "SUCCESS" || gatewayStatus === "FAILED") {
       const result = gatewayStatus === "SUCCESS" ? "SUCCEEDED" : "FAILED";
@@ -124,7 +124,7 @@ export class PaymentsService {
     if (typeof idempotencyKey !== "string" || idempotencyKey.trim() === "" || idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
       throw new BadRequestException("Idempotency-Key không hợp lệ");
     }
-    if (typeof input?.orderId !== "string" || input.orderId.trim() === "" || (input.method !== "WALLET" && input.method !== "CARD" && (input.method as any) !== "SEPAY")) {
+    if (typeof input?.orderId !== "string" || input.orderId.trim() === "" || (input.method !== "WALLET" && input.method !== "CARD" && input.method !== "SEPAY")) {
       throw new BadRequestException("Thông tin thanh toán không hợp lệ");
     }
   }
@@ -141,9 +141,9 @@ export class PaymentsService {
   }
 
   private async chargeAndFinalize(payment: PaymentAttemptRecord): Promise<PaymentAttemptRecord> {
-    if ((payment.method as any) === "SEPAY") return payment; // SePay không gọi gateway, chờ webhook
+    if (payment.method === "SEPAY") return payment; // SePay không gọi gateway, chờ webhook
 
-    const gatewayResult: GatewayResult = await this.mockGateway.charge(payment.order_id, payment.amount, payment.method as "WALLET"|"CARD", payment.idempotency_key);
+    const gatewayResult: GatewayResult = await this.mockGateway.charge(payment.order_id, payment.amount, payment.method, payment.idempotency_key);
     if (gatewayResult !== "TIMEOUT") {
       const result = gatewayResult === "SUCCESS" ? "SUCCEEDED" : "FAILED";
       await this.finalizePayment(payment.id, result, payment.user_id, payment.order_id, payment.amount);

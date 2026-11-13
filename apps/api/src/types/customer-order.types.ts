@@ -3,7 +3,7 @@
 import type { OrderStatus } from "./contracts.js";
 
 export type PaymentAttemptStatus = "PROCESSING" | "SUCCEEDED" | "FAILED";
-export type PaymentMethod = "WALLET" | "CARD";
+export type PaymentMethod = "WALLET" | "CARD" | "SEPAY";
 
 export interface OrderSummary {
   id: string;

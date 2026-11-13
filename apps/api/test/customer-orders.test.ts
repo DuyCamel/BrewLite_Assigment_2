@@ -26,7 +26,7 @@ const ALL: OrderStatus[] = [
   "COMPLETED",
   "CANCELLED",
 ];
-// Đúng 8 cạnh của guard_order_change trong 002_integrity.sql.
+// Đúng 8 cạnh của guard_order_change trong 001_schema.sql.
 const EDGES = new Set([
   "PENDING>PAID",
   "PENDING>PAYMENT_FAILED",

@@ -1,9 +1,8 @@
-// Test SQL của OrderModel và InventoryModel.findStock trên PostgreSQL thật (PGlite).
+// Test SQL của OrderModel trên PostgreSQL thật (PGlite).
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import type { PGlite } from "@electric-sql/pglite";
 import { OrderModel } from "../src/models/order.model.js";
-import { InventoryModel } from "../src/models/inventory.model.js";
 import type { NewOrder, NewOrderItem } from "../src/types/order.types.js";
 import type { PoolClient } from "../src/types/contracts.js";
 import {
@@ -299,13 +298,4 @@ test("reopenForRetry đưa PAYMENT_FAILED về PENDING qua trigger 002", async (
   assert.equal(await tx((c) => model.reopenForRetry("m-8", c)), false);
   // đơn PENDING bình thường cũng không được mở lại
   assert.equal(await tx((c) => model.reopenForRetry("m-5", c)), false);
-});
-
-test("InventoryModel.findStock trả stock/version, null khi không có", async () => {
-  const inventory = new InventoryModel();
-  const snapshot = await tx((c) => inventory.findStock(PRODUCT_ID, c));
-  assert.ok(snapshot);
-  assert.equal(snapshot.stock, 10);
-  assert.equal(snapshot.version, 0);
-  assert.equal(await tx((c) => inventory.findStock("khong-co", c)), null);
 });

@@ -7,7 +7,6 @@ export interface Product {
   description: string;
   badge: string;
   imageUrl: string | null;
-  stock: number;
   sizes: { name: string; extraPrice: number }[];
   toppings: { id: string; name: string; price: number }[];
 }

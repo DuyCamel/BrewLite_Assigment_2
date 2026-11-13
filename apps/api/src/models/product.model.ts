@@ -64,7 +64,7 @@ export class ProductModel {
     }
     const result = await this.db.query<Product>(
       `SELECT id, name, category, price, description,
-      badge, image_url AS "imageUrl", stock, sizes, toppings FROM products
+      badge, image_url AS "imageUrl", sizes, toppings FROM products
       WHERE id <> ALL($1::text[]) ORDER BY position, id`,
       [[...unavailableProductIds]],
     );
@@ -90,7 +90,7 @@ export class ProductModel {
     // nếu không phải sample, thì gọi SQL để lấy sản phẩm theo id
     const result = await this.db.query<Product>(
       `SELECT id, name, category, price, description,
-        badge, image_url AS "imageUrl", stock, sizes, toppings FROM products
+        badge, image_url AS "imageUrl", sizes, toppings FROM products
         WHERE id = $1 AND id <> ALL($2::text[])`,
       [id, [...unavailableProductIds]],
     );

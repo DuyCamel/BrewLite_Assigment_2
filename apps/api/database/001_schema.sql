@@ -2,7 +2,7 @@
 
 -- ===== 001_schema.sql =====
 
--- TV1: Schema Ä‘á»§ cháº¡y menu. Cháº¡y báº±ng npm run db:migrate, KHÃ”NG xÃ³a DB cÃ³ sáºµn.
+-- TV1: Schema đủ chạy menu. Chạy bằng npm run db:migrate, KHÔNG xóa DB có sẵn.
 CREATE TABLE IF NOT EXISTS products (
  id TEXT PRIMARY KEY, name TEXT NOT NULL, category TEXT NOT NULL,
  price INTEGER NOT NULL CHECK (price >= 0), description TEXT NOT NULL DEFAULT '',
@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS products (
  position INTEGER NOT NULL DEFAULT 0
 );
 
--- Schema chung cho 6 thÃ nh viÃªn. KhÃ´ng DROP database/báº£ng; tÆ°Æ¡ng thÃ­ch báº£ng products cÅ©.
+-- Schema chung cho 6 thành viên. Không DROP database/bảng; tương thích bảng products cũ.
 CREATE TABLE IF NOT EXISTS users (
  id TEXT PRIMARY KEY,
  email TEXT NOT NULL CHECK (email = btrim(email) AND position('@' IN email) > 1),
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS orders (
  total INTEGER NOT NULL CHECK (total >= 0 AND total = subtotal - discount),
  promotion_id TEXT REFERENCES promotions(id) ON DELETE RESTRICT,
  stock_released BOOLEAN NOT NULL DEFAULT false,
- created_txid BIGINT NOT NULL DEFAULT txid_current(), -- chá»‰ thÃªm chi tiáº¿t trong transaction táº¡o Ä‘Æ¡n
+ created_txid BIGINT NOT NULL DEFAULT txid_current(), -- chỉ thêm chi tiết trong transaction tạo đơn
  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
  expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '15 minutes'),
  CHECK (expires_at > created_at), CHECK (promotion_id IS NOT NULL OR discount = 0)
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS payments (
  CHECK (resolved_at IS NULL OR resolved_at >= created_at),
  CHECK ((status = 'PROCESSING' AND resolved_at IS NULL) OR (status <> 'PROCESSING' AND resolved_at IS NOT NULL))
 );
--- Má»™t Ä‘Æ¡n chá»‰ cÃ³ tá»‘i Ä‘a má»™t attempt Ä‘ang xá»­ lÃ½ HOáº¶C thÃ nh cÃ´ng.
+-- Một đơn chỉ có tối đa một attempt đang xử lý HOẶC thành công.
 CREATE UNIQUE INDEX IF NOT EXISTS payments_one_live_attempt ON payments(order_id)
  WHERE status IN ('PROCESSING','SUCCEEDED');
 CREATE TABLE IF NOT EXISTS loyalty_transactions (
@@ -82,34 +82,34 @@ CREATE TABLE IF NOT EXISTS seed_history (name TEXT PRIMARY KEY, seeded_at TIMEST
 
 -- ===== 002_integrity.sql =====
 
--- Kiá»ƒm tra á»Ÿ DATABASE. Service váº«n pháº£i validate/JWT/quyá»n sá»Ÿ há»¯u vÃ  Ä‘iá»u phá»‘i transaction.
--- KhÃ´ng gá»i gateway, khÃ´ng tá»± giá»¯/hoÃ n tá»“n vÃ  khÃ´ng tá»± Ä‘Ã¡nh dáº¥u PAID á»Ÿ trigger.
+-- Kiểm tra ở DATABASE. Service vẫn phải validate/JWT/quyền sở hữu và điều phối transaction.
+-- Không gọi gateway, không tự giữ/hoàn tồn và không tự đánh dấu PAID ở trigger.
 CREATE OR REPLACE FUNCTION check_product_options() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE item jsonb;
 BEGIN
  IF btrim(NEW.name) = '' OR btrim(NEW.category) = '' THEN
-  RAISE EXCEPTION 'TÃªn vÃ  loáº¡i sáº£n pháº©m khÃ´ng Ä‘Æ°á»£c rá»—ng' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Tên và loại sản phẩm không được rỗng' USING ERRCODE='23514';
  END IF;
  IF jsonb_typeof(NEW.sizes) <> 'array' OR jsonb_array_length(NEW.sizes) = 0 OR jsonb_typeof(NEW.toppings) <> 'array' THEN
-  RAISE EXCEPTION 'sizes/toppings pháº£i lÃ  máº£ng, sizes khÃ´ng rá»—ng' USING ERRCODE='23514';
+  RAISE EXCEPTION 'sizes/toppings phải là mảng, sizes không rỗng' USING ERRCODE='23514';
  END IF;
  FOR item IN SELECT * FROM jsonb_array_elements(NEW.sizes) LOOP
   IF NOT (item ? 'name' AND item ? 'extraPrice') OR NOT coalesce(item->>'name' IN ('S','M','L'),false) OR
    jsonb_typeof(item->'extraPrice') IS DISTINCT FROM 'number' OR NOT ((item->>'extraPrice') ~ '^[0-9]+$') THEN
-   RAISE EXCEPTION 'Size hoáº·c giÃ¡ cá»™ng thÃªm khÃ´ng há»£p lá»‡' USING ERRCODE='23514';
+   RAISE EXCEPTION 'Size hoặc giá cộng thêm không hợp lệ' USING ERRCODE='23514';
   END IF;
  END LOOP;
  IF (SELECT count(*) <> count(DISTINCT x->>'name') FROM jsonb_array_elements(NEW.sizes) x) THEN
-  RAISE EXCEPTION 'Size bá»‹ trÃ¹ng' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Size bị trùng' USING ERRCODE='23514';
  END IF;
  FOR item IN SELECT * FROM jsonb_array_elements(NEW.toppings) LOOP
   IF NOT (item ? 'id' AND item ? 'name' AND item ? 'price') OR coalesce(btrim(item->>'id'),'')='' OR
    coalesce(btrim(item->>'name'),'')='' OR jsonb_typeof(item->'price') IS DISTINCT FROM 'number' OR NOT ((item->>'price') ~ '^[0-9]+$') THEN
-   RAISE EXCEPTION 'Topping khÃ´ng há»£p lá»‡' USING ERRCODE='23514';
+   RAISE EXCEPTION 'Topping không hợp lệ' USING ERRCODE='23514';
   END IF;
  END LOOP;
  IF (SELECT count(*) <> count(DISTINCT x->>'id') FROM jsonb_array_elements(NEW.toppings) x) THEN
-  RAISE EXCEPTION 'MÃ£ topping bá»‹ trÃ¹ng' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Mã topping bị trùng' USING ERRCODE='23514';
  END IF;
  RETURN NEW;
 END $$;
@@ -120,20 +120,20 @@ CREATE OR REPLACE FUNCTION guard_order_change() RETURNS trigger LANGUAGE plpgsql
 BEGIN
  IF TG_OP='DELETE' THEN
   IF OLD.status IN ('PAID','PREPARING','READY','COMPLETED') THEN
-   RAISE EXCEPTION 'KhÃ´ng xÃ³a váº­t lÃ½ Ä‘Æ¡n Ä‘Ã£ thanh toÃ¡n' USING ERRCODE='23514';
+   RAISE EXCEPTION 'Không xóa vật lý đơn đã thanh toán' USING ERRCODE='23514';
   END IF;
   RETURN OLD;
  END IF;
  IF TG_OP='INSERT' THEN
-  IF NEW.created_txid <> txid_current() THEN RAISE EXCEPTION 'created_txid pháº£i lÃ  transaction hiá»‡n táº¡i' USING ERRCODE='23514'; END IF;
-  IF NEW.status <> 'PENDING' THEN RAISE EXCEPTION 'ÄÆ¡n má»›i pháº£i PENDING' USING ERRCODE='23514'; END IF;
+  IF NEW.created_txid <> txid_current() THEN RAISE EXCEPTION 'created_txid phải là transaction hiện tại' USING ERRCODE='23514'; END IF;
+  IF NEW.status <> 'PENDING' THEN RAISE EXCEPTION 'Đơn mới phải PENDING' USING ERRCODE='23514'; END IF;
   RETURN NEW;
  END IF;
  IF NEW.created_txid IS DISTINCT FROM OLD.created_txid OR NEW.id IS DISTINCT FROM OLD.id OR NEW.user_id IS DISTINCT FROM OLD.user_id OR
   NEW.subtotal IS DISTINCT FROM OLD.subtotal OR NEW.discount IS DISTINCT FROM OLD.discount OR
   NEW.total IS DISTINCT FROM OLD.total OR NEW.promotion_id IS DISTINCT FROM OLD.promotion_id OR
   NEW.created_at IS DISTINCT FROM OLD.created_at THEN
-  RAISE EXCEPTION 'KhÃ´ng sá»­a chá»§ Ä‘Æ¡n hoáº·c giÃ¡ chá»‘t; há»§y vÃ  táº¡o Ä‘Æ¡n má»›i' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Không sửa chủ đơn hoặc giá chốt; hủy và tạo đơn mới' USING ERRCODE='23514';
  END IF;
  IF NEW.status <> OLD.status AND NOT (
   (OLD.status='PENDING' AND NEW.status IN ('PAID','PAYMENT_FAILED','CANCELLED')) OR
@@ -141,7 +141,7 @@ BEGIN
   (OLD.status='PAID' AND NEW.status='PREPARING') OR
   (OLD.status='PREPARING' AND NEW.status='READY') OR
   (OLD.status='READY' AND NEW.status='COMPLETED')
- ) THEN RAISE EXCEPTION 'Chuyá»ƒn tráº¡ng thÃ¡i Ä‘Æ¡n khÃ´ng há»£p lá»‡: % -> %', OLD.status, NEW.status USING ERRCODE='23514'; END IF;
+ ) THEN RAISE EXCEPTION 'Chuyển trạng thái đơn không hợp lệ: % -> %', OLD.status, NEW.status USING ERRCODE='23514'; END IF;
  RETURN NEW;
 END $$;
 DROP TRIGGER IF EXISTS orders_change_guard ON orders;
@@ -153,26 +153,26 @@ BEGIN
  parent_id := CASE WHEN TG_OP='DELETE' THEN OLD.order_id ELSE NEW.order_id END;
  SELECT status,created_txid INTO parent_status,parent_txid FROM orders WHERE id=parent_id FOR UPDATE;
  IF parent_status IS NOT NULL AND (parent_txid <> txid_current() OR EXISTS(SELECT 1 FROM payments WHERE order_id=parent_id)) THEN
-  RAISE EXCEPTION 'Chi tiáº¿t Ä‘Ã£ chá»‘t; chá»‰ láº­p trong transaction táº¡o Ä‘Æ¡n trÆ°á»›c thanh toÃ¡n' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Chi tiết đã chốt; chỉ lập trong transaction tạo đơn trước thanh toán' USING ERRCODE='23514';
  END IF;
  IF parent_status IS NOT NULL AND parent_status <> 'PENDING' THEN
-  RAISE EXCEPTION 'Chá»‰ láº­p chi tiáº¿t khi Ä‘Æ¡n PENDING' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Chỉ lập chi tiết khi đơn PENDING' USING ERRCODE='23514';
  END IF;
  IF TG_OP='UPDATE' AND (NEW.order_id <> OLD.order_id OR NEW.id <> OLD.id) THEN
-  RAISE EXCEPTION 'KhÃ´ng chuyá»ƒn chi tiáº¿t sang Ä‘Æ¡n khÃ¡c' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Không chuyển chi tiết sang đơn khác' USING ERRCODE='23514';
  END IF;
  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
  SELECT * INTO product FROM products WHERE id=NEW.product_id;
  IF NOT EXISTS (SELECT 1 FROM jsonb_array_elements(product.sizes) x WHERE x->>'name'=NEW.size) THEN
-  RAISE EXCEPTION 'Size khÃ´ng thuá»™c sáº£n pháº©m' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Size không thuộc sản phẩm' USING ERRCODE='23514';
  END IF;
  IF EXISTS (SELECT 1 FROM jsonb_array_elements(NEW.topping_ids) x
    WHERE jsonb_typeof(x) IS DISTINCT FROM 'string' OR NOT EXISTS
    (SELECT 1 FROM jsonb_array_elements(product.toppings) t WHERE t->>'id'=x#>>'{}')) THEN
-  RAISE EXCEPTION 'Topping khÃ´ng thuá»™c sáº£n pháº©m' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Topping không thuộc sản phẩm' USING ERRCODE='23514';
  END IF;
  IF (SELECT count(*) <> count(DISTINCT x) FROM jsonb_array_elements(NEW.topping_ids) x) THEN
-  RAISE EXCEPTION 'Topping trong dÃ²ng Ä‘Æ¡n bá»‹ trÃ¹ng' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Topping trong dòng đơn bị trùng' USING ERRCODE='23514';
  END IF;
  RETURN NEW;
 END $$;
@@ -182,53 +182,53 @@ CREATE TRIGGER order_items_guard BEFORE INSERT OR UPDATE OR DELETE ON order_item
 CREATE OR REPLACE FUNCTION guard_payment_change() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE parent orders;
 BEGIN
- IF TG_OP='DELETE' THEN RAISE EXCEPTION 'KhÃ´ng xÃ³a lá»‹ch sá»­ thanh toÃ¡n' USING ERRCODE='23514'; END IF;
+ IF TG_OP='DELETE' THEN RAISE EXCEPTION 'Không xóa lịch sử thanh toán' USING ERRCODE='23514'; END IF;
  SELECT * INTO parent FROM orders WHERE id=NEW.order_id FOR UPDATE;
  IF TG_OP='INSERT' THEN
   IF NEW.status <> 'PROCESSING' OR parent.status <> 'PENDING' THEN
-   RAISE EXCEPTION 'Attempt má»›i chá»‰ PROCESSING trÃªn Ä‘Æ¡n PENDING' USING ERRCODE='23514';
+   RAISE EXCEPTION 'Attempt mới chỉ PROCESSING trên đơn PENDING' USING ERRCODE='23514';
   END IF;
  ELSE
   IF OLD.status <> 'PROCESSING' OR NEW.status NOT IN ('SUCCEEDED','FAILED') OR
    NEW.id IS DISTINCT FROM OLD.id OR NEW.order_id IS DISTINCT FROM OLD.order_id OR
    NEW.idempotency_key IS DISTINCT FROM OLD.idempotency_key OR NEW.payload_hash IS DISTINCT FROM OLD.payload_hash OR
    NEW.amount IS DISTINCT FROM OLD.amount OR NEW.method IS DISTINCT FROM OLD.method OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
-   RAISE EXCEPTION 'KhÃ´ng sá»­a attempt cuá»‘i hoáº·c thay key/payload/sá»‘ tiá»n' USING ERRCODE='23514';
+   RAISE EXCEPTION 'Không sửa attempt cuối hoặc thay key/payload/số tiền' USING ERRCODE='23514';
   END IF;
  END IF;
- IF NEW.amount <> parent.total THEN RAISE EXCEPTION 'Tiá»n thanh toÃ¡n khÃ¡c tá»•ng Ä‘Æ¡n' USING ERRCODE='23514'; END IF;
+ IF NEW.amount <> parent.total THEN RAISE EXCEPTION 'Tiền thanh toán khác tổng đơn' USING ERRCODE='23514'; END IF;
  RETURN NEW;
 END $$;
 DROP TRIGGER IF EXISTS payments_change_guard ON payments;
 CREATE TRIGGER payments_change_guard BEFORE INSERT OR UPDATE OR DELETE ON payments FOR EACH ROW EXECUTE FUNCTION guard_payment_change();
 
--- Kiá»ƒm tra liÃªn báº£ng táº¡i COMMIT: cho phÃ©p ghi Payment + PAID + EARN theo cÃ¹ng transaction.
+-- Kiểm tra liên bảng tại COMMIT: cho phép ghi Payment + PAID + EARN theo cùng transaction.
 CREATE OR REPLACE FUNCTION assert_order_consistency(target_id text) RETURNS void LANGUAGE plpgsql AS $$
 DECLARE o orders; lines bigint; item_count bigint; success_count bigint; processing_count bigint; earn_count bigint;
 BEGIN
  SELECT * INTO o FROM orders WHERE id=target_id;
  IF NOT FOUND THEN RETURN; END IF;
  SELECT count(*),coalesce(sum(line_total),0) INTO item_count,lines FROM order_items WHERE order_id=o.id;
- IF item_count=0 OR lines<>o.subtotal THEN RAISE EXCEPTION 'ÄÆ¡n cáº§n chi tiáº¿t vÃ  subtotal pháº£i báº±ng tá»•ng dÃ²ng' USING ERRCODE='23514'; END IF;
+ IF item_count=0 OR lines<>o.subtotal THEN RAISE EXCEPTION 'Đơn cần chi tiết và subtotal phải bằng tổng dòng' USING ERRCODE='23514'; END IF;
  SELECT count(*) FILTER(WHERE status='SUCCEEDED'),count(*) FILTER(WHERE status='PROCESSING') INTO success_count,processing_count FROM payments WHERE order_id=o.id;
  IF (o.status IN ('PAID','PREPARING','READY','COMPLETED')) <> (success_count=1) THEN
-  RAISE EXCEPTION 'Tráº¡ng thÃ¡i Ä‘Æ¡n khÃ´ng khá»›p thanh toÃ¡n thÃ nh cÃ´ng' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Trạng thái đơn không khớp thanh toán thành công' USING ERRCODE='23514';
  END IF;
  SELECT count(*) INTO earn_count FROM loyalty_transactions WHERE order_id=o.id AND type='EARN';
  IF (o.status IN ('PAID','PREPARING','READY','COMPLETED')) <> (earn_count=1) THEN
-  RAISE EXCEPTION 'ÄÆ¡n Ä‘Ã£ tráº£ tiá»n pháº£i cÃ³ Ä‘Ãºng má»™t EARN trong cÃ¹ng transaction' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Đơn đã trả tiền phải có đúng một EARN trong cùng transaction' USING ERRCODE='23514';
  END IF;
  IF o.status IN ('PAYMENT_FAILED','CANCELLED') AND processing_count>0 THEN
-  RAISE EXCEPTION 'KhÃ´ng há»§y/káº¿t luáº­n tháº¥t báº¡i khi cÃ²n thanh toÃ¡n PROCESSING' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Không hủy/kết luận thất bại khi còn thanh toán PROCESSING' USING ERRCODE='23514';
  END IF;
  IF o.status='PAYMENT_FAILED' AND NOT EXISTS (SELECT 1 FROM payments WHERE order_id=o.id AND status='FAILED') THEN
-  RAISE EXCEPTION 'PAYMENT_FAILED cáº§n cÃ³ attempt tháº¥t báº¡i xÃ¡c Ä‘á»‹nh' USING ERRCODE='23514';
+  RAISE EXCEPTION 'PAYMENT_FAILED cần có attempt thất bại xác định' USING ERRCODE='23514';
  END IF;
  IF o.status IN ('PAYMENT_FAILED','CANCELLED') AND NOT o.stock_released THEN
-  RAISE EXCEPTION 'ÄÆ¡n tháº¥t báº¡i/há»§y cáº§n Ä‘Ã¡nh dáº¥u Ä‘Ã£ hoÃ n tá»“n' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Đơn thất bại/hủy cần đánh dấu đã hoàn tồn' USING ERRCODE='23514';
  END IF;
  IF o.status IN ('PAID','PREPARING','READY','COMPLETED') AND o.stock_released THEN
-  RAISE EXCEPTION 'ÄÆ¡n Ä‘Ã£ tráº£ tiá»n khÃ´ng thá»ƒ Ä‘Ã¡nh dáº¥u Ä‘Ã£ hoÃ n tá»“n' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Đơn đã trả tiền không thể đánh dấu đã hoàn tồn' USING ERRCODE='23514';
  END IF;
 END $$;
 CREATE OR REPLACE FUNCTION check_order_consistency_trigger() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -250,16 +250,16 @@ CREATE CONSTRAINT TRIGGER payments_consistency AFTER INSERT OR UPDATE OR DELETE 
 CREATE OR REPLACE FUNCTION guard_loyalty_earn() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE o orders;
 BEGIN
- IF TG_OP <> 'INSERT' THEN RAISE EXCEPTION 'Sá»• Ä‘iá»ƒm chá»‰ Ä‘Æ°á»£c ghi thÃªm, khÃ´ng sá»­a/xÃ³a' USING ERRCODE='23514'; END IF;
+ IF TG_OP <> 'INSERT' THEN RAISE EXCEPTION 'Sổ điểm chỉ được ghi thêm, không sửa/xóa' USING ERRCODE='23514'; END IF;
  SELECT * INTO o FROM orders WHERE id=NEW.order_id FOR UPDATE;
  IF o.user_id IS DISTINCT FROM NEW.user_id OR o.status NOT IN ('PAID','PREPARING','READY','COMPLETED') THEN
-  RAISE EXCEPTION 'Chá»‰ tÃ­ch Ä‘iá»ƒm cho chá»§ Ä‘Æ¡n Ä‘Ã£ PAID' USING ERRCODE='23514';
+  RAISE EXCEPTION 'Chỉ tích điểm cho chủ đơn đã PAID' USING ERRCODE='23514';
  END IF;
  RETURN NEW;
 END $$;
 DROP TRIGGER IF EXISTS loyalty_guard ON loyalty_transactions;
 CREATE TRIGGER loyalty_guard BEFORE INSERT OR UPDATE OR DELETE ON loyalty_transactions FOR EACH ROW EXECUTE FUNCTION guard_loyalty_earn();
--- Äiá»ƒm tá»•ng cáº­p nháº­t bá»Ÿi trigger nÃ y; service chá»‰ INSERT ledger, KHÃ”NG cá»™ng users láº§n ná»¯a.
+-- Điểm tổng cập nhật bởi trigger này; service chỉ INSERT ledger, KHÔNG cộng users lần nữa.
 CREATE OR REPLACE FUNCTION add_loyalty_balance() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
  UPDATE users SET loyalty_points=loyalty_points+NEW.points WHERE id=NEW.user_id;
@@ -268,14 +268,14 @@ END $$;
 DROP TRIGGER IF EXISTS loyalty_balance ON loyalty_transactions;
 CREATE TRIGGER loyalty_balance AFTER INSERT ON loyalty_transactions FOR EACH ROW EXECUTE FUNCTION add_loyalty_balance();
 
--- Tá»« chá»‘i sá»­a Ä‘iá»ƒm tá»•ng khÃ´ng khá»›p sá»• Ä‘iá»ƒm (kiá»ƒm tra cuá»‘i transaction).
+-- Từ chối sửa điểm tổng không khớp sổ điểm (kiểm tra cuối transaction).
 CREATE OR REPLACE FUNCTION check_user_points_balance() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE uid text; balance bigint; ledger bigint;
 BEGIN
  IF TG_TABLE_NAME='users' THEN uid:=NEW.id; ELSE uid:=NEW.user_id; END IF;
  SELECT loyalty_points INTO balance FROM users WHERE id=uid;
  SELECT coalesce(sum(points),0) INTO ledger FROM loyalty_transactions WHERE user_id=uid;
- IF balance IS DISTINCT FROM ledger THEN RAISE EXCEPTION 'Äiá»ƒm tá»•ng khÃ´ng khá»›p sá»• Ä‘iá»ƒm' USING ERRCODE='23514'; END IF;
+ IF balance IS DISTINCT FROM ledger THEN RAISE EXCEPTION 'Điểm tổng không khớp sổ điểm' USING ERRCODE='23514'; END IF;
  RETURN NULL;
 END $$;
 DROP TRIGGER IF EXISTS users_points_consistency ON users;
@@ -361,8 +361,8 @@ END $$;
 
 -- ===== 008_password_reset.sql =====
 
--- TV3: quÃªn máº­t kháº©u. Chá»‰ lÆ°u mÃ£ bÄƒm SHA-256 cá»§a token (token gá»‘c chá»‰ náº±m trong email gá»­i cho ngÆ°á»i dÃ¹ng).
--- Token dÃ¹ng má»™t láº§n (used_at) vÃ  cÃ³ háº¡n (expires_at). XÃ³a tÃ i khoáº£n thÃ¬ xÃ³a luÃ´n token cá»§a tÃ i khoáº£n Ä‘Ã³.
+-- TV3: quên mật khẩu. Chỉ lưu mã băm SHA-256 của token (token gốc chỉ nằm trong email gửi cho người dùng).
+-- Token dùng một lần (used_at) và có hạn (expires_at). Xóa tài khoản thì xóa luôn token của tài khoản đó.
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -372,7 +372,7 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Phá»¥c vá»¥ giá»›i háº¡n sá»‘ yÃªu cáº§u theo tÃ i khoáº£n vÃ  dá»n token cÅ©.
+-- Phục vụ giới hạn số yêu cầu theo tài khoản và dọn token cũ.
 CREATE INDEX IF NOT EXISTS password_reset_tokens_user_created
   ON password_reset_tokens (user_id, created_at DESC);
 

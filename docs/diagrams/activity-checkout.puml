@@ -1,0 +1,86 @@
+@startuml
+title Task 2.1 - Luồng đặt đơn và thanh toán đang có trên web
+skinparam backgroundColor #F8FBF9
+skinparam activity {
+  BackgroundColor #E7F3EC
+  BorderColor #315A4C
+  FontColor #18372D
+}
+
+|Khách hàng|
+start
+:Xem menu, chọn size/topping;
+:Thêm món vào giỏ và xác nhận;
+|Next.js UI|
+:Giỏ lưu tại trình duyệt;
+if (Đã đăng nhập?) then (chưa)
+  |Khách hàng|
+  :Đăng nhập / đăng ký;
+  |Next.js UI|
+  :Giữ giỏ, quay lại checkout;
+endif
+|Next.js UI|
+:POST /orders kèm JWT,
+items và mã ưu đãi (nếu có);
+|NestJS API|
+:Kiểm tra JWT, dữ liệu,
+tính lại giá và giảm giá;
+if (Hợp lệ và còn tồn?) then (không)
+  :Trả lỗi, không tạo đơn;
+  |Khách hàng|
+  :Sửa giỏ hoặc thử lại;
+  stop
+else (có)
+  |PostgreSQL|
+  :Một transaction:
+giữ tồn nguyên liệu/sản phẩm,
+tạo đơn PENDING và order_items;
+  |NestJS API|
+  :Trả mã đơn và tổng tiền;
+endif
+|Next.js UI|
+:Lấy đơn, hiển thị VietQR
+với mã DH và thời hạn QR;
+|Khách hàng|
+:Chuyển khoản (nếu chọn);
+|SePay|
+:Gửi POST /webhooks/sepay
+khi nhận giao dịch;
+|NestJS API|
+if (Đúng key, mã hiện hành,
+tiền và hạn?) then (có)
+  |PostgreSQL|
+  :Ghi payment thành công,
+đơn PAID, EARN một lần;
+  |Next.js UI|
+  :Poll trạng thái đơn;
+  :Hiển thị PAID, xóa giỏ;
+  |Khách hàng|
+  :Xem kết quả và lịch sử;
+else (chưa / không)
+  |NestJS API|
+  :Không ghi nhận PAID;
+  if (QR đầu hết hạn,
+đơn vẫn còn hạn?) then (có)
+    |Khách hàng|
+    :Lấy QR mới một lần;
+    |NestJS API|
+    :Đổi mã DH, hạn QR mới;
+    |Next.js UI|
+    :Hiển thị QR mới;
+  else (không)
+    |NestJS API|
+    :Job hủy đơn quá hạn,
+hoàn tồn nếu không PROCESSING;
+  endif
+  |Khách hàng|
+  :Xem trạng thái đơn;
+endif
+stop
+
+note right
+  Mock Ví/Thẻ có API riêng,
+  chưa được nối vào UI thanh toán.
+  Quét QR không đồng nghĩa đã PAID.
+end note
+@enduml

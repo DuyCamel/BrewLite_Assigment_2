@@ -1,0 +1,86 @@
+@startuml
+title Task 2.2 - Tạo đơn, QR/SePay và mock payment API
+skinparam backgroundColor #F8FBF9
+skinparam sequence {
+  ArrowColor #315A4C
+  LifeLineBorderColor #658C7D
+  ParticipantBorderColor #315A4C
+  ParticipantBackgroundColor #E7F3EC
+}
+autonumber
+
+actor "Khách hàng" as Customer
+participant "Next.js UI" as UI
+participant "NestJS API" as API
+database "PostgreSQL" as DB
+participant "SePay (bên ngoài)" as SePay
+participant "Mock Payment Service" as Mock
+actor "Mock API client\n(chỉ test, chưa có UI)" as TestClient
+
+Customer -> UI: Chọn món, size/topping; giỏ ở trình duyệt
+UI -> API: GET /products và GET /products/:id
+API -> DB: Đọc danh mục, tùy chọn
+DB --> API: Sản phẩm/giá
+API --> UI: Menu, chi tiết
+Customer -> UI: Đăng nhập, xác nhận giỏ và mã ưu đãi
+UI -> API: POST /orders {items, promotionCode?} + Bearer JWT
+API -> API: Kiểm tra JWT, input; tính lại giá
+API -> DB: BEGIN; kiểm tra/giữ tồn; INSERT orders, order_items
+alt không hợp lệ hoặc không đủ tồn
+  DB --> API: Lỗi; ROLLBACK
+  API --> UI: 400/409, không tạo đơn
+else thành công
+  DB --> API: COMMIT (PENDING, tồn đã giữ)
+  API --> UI: 201 {orderId, paymentCode, total}
+end
+
+group Đường thanh toán đang có trên web: VietQR / SePay
+  UI -> API: GET /orders/:id + Bearer JWT
+  API -> DB: SELECT đơn theo user_id
+  DB --> API: Mã DH, tổng, hạn QR/đơn
+  API --> UI: Thông tin đơn
+  UI --> Customer: Hiển thị QR; quét QR chưa phải PAID
+  Customer -> SePay: Chuyển khoản kèm mã DH
+  SePay -> API: POST /webhooks/sepay + Apikey
+  API -> DB: BEGIN; khóa đơn, kiểm tra mã hiện hành/hạn/tiền
+  alt giao dịch hợp lệ
+    API -> DB: Ghi provider transaction, Payment SUCCEEDED,
+    API --> SePay: Xác nhận webhook
+  else sai tiền, mã cũ hoặc hết hạn
+    API -> DB: ROLLBACK; không ghi PAID
+    API --> SePay: 400/409 (cần đối soát nếu tiền đã vào)
+  end
+  loop khi đơn PENDING
+    UI -> API: GET /orders/:id
+    API --> UI: Trạng thái hiện tại
+  end
+  UI --> Customer: Kết quả/QR mới nếu đủ điều kiện
+end
+
+group Nhánh mock Ví/Thẻ: API đã có, UI hiện chưa gọi
+  TestClient -> API: POST /payments {orderId, method} + Bearer JWT + Idempotency-Key
+  API -> DB: Kiểm tra key, chủ đơn, PENDING, payment đang xử lý
+  alt cùng key và payload
+    DB --> API: Lần thử trước
+    API --> TestClient: Trả cùng kết quả, không gọi gateway lần nữa
+  else key khác payload hoặc payment đang xử lý
+    API --> TestClient: 409, không tạo lần thử mới
+  else lần thử mới
+    API -> DB: Transaction 1: INSERT Payment PROCESSING; COMMIT
+    API -> Mock: charge(paymentId, amount, method, key)
+    alt thành công
+      Mock --> API: SUCCESS
+      API -> DB: Transaction 2: Payment SUCCEEDED,
+      API --> TestClient: PAID
+    else thất bại xác định
+      Mock --> API: FAILED
+      API -> DB: Payment FAILED, Order PAYMENT_FAILED,
+      API --> TestClient: Có thể chuẩn bị retry với key mới
+    else timeout / chưa rõ
+      Mock --> API: TIMEOUT
+      API -> DB: Giữ PROCESSING, tồn và PENDING
+      API --> TestClient: Đang xử lý; đối soát theo key cũ
+    end
+  end
+end
+@enduml

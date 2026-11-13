@@ -18,12 +18,22 @@ import {
 let db: PGlite;
 let tx: Tx;
 const model = new OrderModel();
+const savedEnv = {
+  ORDER_TTL_MINUTES: process.env.ORDER_TTL_MINUTES,
+  QR_TTL_MINUTES: process.env.QR_TTL_MINUTES,
+};
 
 before(async () => {
+  process.env.ORDER_TTL_MINUTES = "15";
+  process.env.QR_TTL_MINUTES = "5";
   db = await createTestDb();
   tx = makeTx(db);
 });
 after(async () => {
+  for (const [k, v] of Object.entries(savedEnv)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
   await db.close();
 });
 

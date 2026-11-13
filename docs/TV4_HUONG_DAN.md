@@ -37,27 +37,30 @@ database migration và kiểm chứng concurrency. Phạm vi công việc bao g�
 - Bổ sung bài kiểm tra PostgreSQL cho hai khách cùng đặt hai ly khi chỉ còn hai
   ly; nếu một đơn không đủ nguyên liệu thì đơn phải rollback toàn bộ.
 
-### Kiểm chứng đã chạy
+### Kiểm chứng tích hợp ngày 13/11/2026
 
-- Bộ test trọng tâm database, inventory model và ingredient flow: **24/24 đạt**.
-- Typecheck API: **đạt**.
-- Bộ ba test TV4 dưới `tests/e2e`: lần chạy trước đó **9/9 đạt**.
-- Smoke test migration/seed bằng PGlite: xác nhận `products.stock` đã bị bỏ,
-  `products.version` còn nguyên, công thức catalog hợp lệ và nguyên liệu được nạp.
-- `git diff --check`: đạt.
+- Đã tích hợp `origin/main` tại `d17d807` vào nhánh Toan và xử lý bốn conflict.
+- `npm test`: **160 test API đạt**, **9 test TV4 đạt**, không có test lỗi;
+  ba test concurrency PostgreSQL bị bỏ qua khi chưa bật `RUN_PG_TESTS=1`.
+- `npm run typecheck`, `npm run build`: đạt cả API và web.
+- `npm run lint`: không có lỗi, còn 25 cảnh báo trong code hiện hữu.
+- `npm run test:tv4` dùng đúng tsconfig API và được gọi từ `npm test`, không
+  thay thế lệnh Playwright `npm run test:e2e` của nhóm.
+- Test runner migration dùng PGlite kiểm tra migrate/seed/migrate trên DB sạch,
+  nâng cấp DB trước/sau migration 010 và bảo toàn đơn hàng, tồn nguyên liệu.
+- Runner chỉ công nhận bốn checksum schema 001 lịch sử đã xác minh của main/Toan
+  (LF/CRLF), không chạy lại schema sau khi bỏ `products.stock`; checksum lạ
+  vẫn bị từ chối. Không sửa nội dung migration 001 hoặc 010 để xử lý lỗi này.
+- `git diff --check origin/main`: đạt cho phần thay đổi của Toan.
 
 ### Giới hạn chưa kiểm chứng
 
-- Các bài concurrency cần PostgreSQL nhiều kết nối chưa chạy được trong môi
-  trường hiện tại vì Docker/PostgreSQL không khả dụng. Chúng vẫn được giữ trong
+- Các bài concurrency cần PostgreSQL nhiều kết nối chưa chạy trên DB test riêng.
+  Chúng vẫn được giữ trong
   `apps/api/test/order-concurrency.test.ts` và cần chạy với `RUN_PG_TESTS=1`
   trên DB test PostgreSQL riêng trước khi xác nhận concurrency thật.
-- Lần chạy toàn bộ API suite gần nhất có **11 lỗi ngoài phạm vi thay đổi tồn kho**:
-  mock API đang kỳ vọng status 501; test auth gặp lỗi named export `sign` từ
-  `jsonwebtoken`; nhóm password-reset gặp `__dirname is not defined`. Hai test
-  PostgreSQL bị skip khi không bật cấu hình chạy DB thật. Cần đối chiếu/fix các
-  lỗi suite này trong phạm vi thành viên phụ trách trước khi dùng kết quả full
-  suite làm tiêu chí release.
+- Chưa chạy Playwright qua trình duyệt/Docker hoặc nâng cấp DB đang phục vụ
+  người dùng. Kết quả PGlite không thay thế kiểm chứng PostgreSQL nhiều kết nối.
 
 ## 3. Quy tắc tồn kho sau thay đổi
 
@@ -75,8 +78,8 @@ database migration và kiểm chứng concurrency. Phạm vi công việc bao g�
 1. Khi có PostgreSQL test DB, chạy riêng kiểm thử concurrency với
    `RUN_PG_TESTS=1`; xác nhận một trong hai đơn thành công, đơn còn lại bị từ
    chối/rollback và tồn không âm.
-2. Phối hợp TV3/TV6 xử lý các lỗi auth, password-reset và các kiểm thử tích hợp
-   ngoài phạm vi inventory nếu cần đưa toàn bộ API suite về xanh.
+2. Giữ các sửa auth/password-reset đã có trên main; mock transaction của test
+   SePay đã cập nhật để khớp code main, không đổi nghiệp vụ payment.
 3. Phối hợp TV1 nếu cần môi trường Docker/local để dựng DB test.
 4. Chạy migration trên môi trường tích hợp và xác nhận API/frontend không còn
    phụ thuộc trường stock của product.
@@ -88,5 +91,5 @@ liệu đã được triển khai, có migration an toàn cho DB hiện hữu v�
 `products.version` được giữ; khóa lạc quan đặt ở đúng bản ghi dùng chung là
 `ingredients.version`. Test trọng tâm và typecheck API đạt, nhưng chưa thể tuyên
 bố concurrency PostgreSQL thật đã được xác nhận do môi trường hiện tại thiếu
-Docker/PostgreSQL. Cần chạy hai bài PostgreSQL-only trên DB test trước khi chốt
+DB test riêng. Cần chạy ba bài PostgreSQL-only trên DB test trước khi chốt
 kiểm chứng concurrency.

@@ -24,11 +24,11 @@ function parsePaymentInput(body: unknown): PaymentInput {
   if (
     typeof value.orderId !== "string" ||
     value.orderId.trim() === "" ||
-    (value.method !== "WALLET" && value.method !== "CARD")
+    (value.method !== "WALLET" && value.method !== "CARD" && value.method !== "SEPAY") // ĐÃ CHO PHÉP SEPAY ĐI QUA
   ) {
     throw new BadRequestException("Thông tin thanh toán không hợp lệ");
   }
-  return { orderId: value.orderId.trim(), method: value.method };
+  return { orderId: value.orderId.trim(), method: value.method as any };
 }
 
 function currentUserId(request: AuthenticatedRequest): string {

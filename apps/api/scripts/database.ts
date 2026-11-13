@@ -7,10 +7,18 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { DatabaseService } from "../src/config/db.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
-async function main() {
-  const db = new DatabaseService();
+// Verified main/Toan schema variants differ only in text encoding (LF/CRLF included).
+const compatibleSchemaChecksums = new Set([
+  "53c09d3c9398789b9e4d0c8a3db58d6308337ff8aecfe704cf729853d1a6e352",
+  "68041647aac8ec2ff896bc76a56377661c4256a08e7afbd00306d001e0946412",
+  "bf80544a5fc4bf03bed9f77f3fb7dbb3334482d278237252d2ef5dcc4cdebe6b",
+  "723290523a6b063f77930f448628c502145c5509addc94bf4c2a0e0e10199bed",
+]);
+export async function runDatabase(
+  action: string | undefined,
+  db = new DatabaseService(),
+) {
   try {
-    const action = process.argv[2];
     if (action === "check") {
       await db.ping();
     } else if (action === "migrate" || action === "seed") {
@@ -59,10 +67,24 @@ async function main() {
               [name],
             );
             if (current.rows.length) {
-              if (current.rows[0].checksum !== checksum)
+              if (current.rows[0].checksum !== checksum) {
+                if (
+                  name === "001_schema.sql" &&
+                  compatibleSchemaChecksums.has(current.rows[0].checksum) &&
+                  compatibleSchemaChecksums.has(checksum)
+                ) {
+                  // Do not replay schema 001: migration 010 has removed products.stock.
+                  await client.query(
+                    "UPDATE schema_migrations SET checksum=$2 WHERE name=$1",
+                    [name, checksum],
+                  );
+                  console.log(`Đã cập nhật ${name}`);
+                  continue;
+                }
                 throw new Error(
                   `Migration đã chạy bị sửa: ${name}. Tạo file phiên bản mới.`,
                 );
+              }
               continue;
             }
             await client.query(sql);
@@ -75,7 +97,7 @@ async function main() {
         } else {
           await client.query(
             readFileSync(
-            resolve(__dirname, "../database/002_seed.sql"),
+              resolve(__dirname, "../database/002_seed.sql"),
               "utf8",
             ),
           );
@@ -87,14 +109,19 @@ async function main() {
     await db.onModuleDestroy();
   }
 }
-main().catch((error) => {
-  console.error(
-    "Lỗi database. Kiểm tra .env, thứ tự schema/seed và quyền tạo bảng.",
-  );
-  if (error && typeof error === "object" && "code" in error)
-    console.error("Mã lỗi:", error.code);
-  if (error instanceof Error) console.error("Chi tiết:", error.message);
-  if (error instanceof Error && error.message.startsWith("Migration đã chạy"))
-    console.error(error.message);
-  process.exitCode = 1;
-});
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  runDatabase(process.argv[2]).catch((error) => {
+    console.error(
+      "Lỗi database. Kiểm tra .env, thứ tự schema/seed và quyền tạo bảng.",
+    );
+    if (error && typeof error === "object" && "code" in error)
+      console.error("Mã lỗi:", error.code);
+    if (error instanceof Error) console.error("Chi tiết:", error.message);
+    if (error instanceof Error && error.message.startsWith("Migration đã chạy"))
+      console.error(error.message);
+    process.exitCode = 1;
+  });
+}

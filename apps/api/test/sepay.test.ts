@@ -13,6 +13,7 @@ function createService(isUnexpired = true) {
   const inserted: string[] = [];
   const model = {
     findProviderTransaction: async () => null,
+    findProcessingPayment: async () => null,
     findOrderForUpdate: async () => ({
       id: orderId,
       status: "PENDING",
@@ -46,16 +47,7 @@ function createService(isUnexpired = true) {
   const db = {
     withTransaction: async <T>(
       operation: (transaction: PoolClient) => Promise<T>,
-    ) =>
-      operation({
-        query: async (text: string, params: unknown[]) => {
-          assert.match(text, /UPDATE payments SET status = 'FAILED'/);
-          assert.match(text, /WHERE order_id = \$1 AND status = 'PROCESSING'/);
-          assert.deepEqual(params, [orderId]);
-          inserted.push("release-processing");
-          return { rows: [], rowCount: 0 };
-        },
-      } as unknown as PoolClient),
+    ) => operation({} as PoolClient),
   } as unknown as DatabaseService;
   return { service: new SepayService(db, model), inserted };
 }
@@ -82,9 +74,7 @@ test("SePay accepts the UUID-only reference used by older QR codes", async () =>
       "Apikey test-webhook-key",
     );
     assert.equal(result.orderId, orderId);
-    assert.deepEqual(inserted, [
-      "release-processing", "insert", "paid", "order-paid", "earn",
-    ]);
+    assert.deepEqual(inserted, ["insert", "paid", "order-paid", "earn"]);
   } finally {
     if (previousKey === undefined) delete process.env.SEPAY_WEBHOOK_API_KEY;
     else process.env.SEPAY_WEBHOOK_API_KEY = previousKey;
@@ -136,9 +126,7 @@ test("SePay accepts a DH payment code and resolves the UUID order", async () => 
       "Apikey test-webhook-key",
     );
     assert.equal(result.orderId, orderId);
-    assert.deepEqual(inserted, [
-      "release-processing", "insert", "paid", "order-paid", "earn",
-    ]);
+    assert.deepEqual(inserted, ["insert", "paid", "order-paid", "earn"]);
   } finally {
     if (previousKey === undefined) delete process.env.SEPAY_WEBHOOK_API_KEY;
     else process.env.SEPAY_WEBHOOK_API_KEY = previousKey;
@@ -167,8 +155,15 @@ test("SePay rejects a transaction after the QR expires", async () => {
 test("DH payment codes backfill old orders and remain unique for new orders", async () => {
   const db = new PGlite();
   try {
-    await db.exec("CREATE TABLE orders (id TEXT PRIMARY KEY); INSERT INTO orders (id) VALUES ('old')");
-    await db.exec(readFileSync(new URL("../database/007_order_payment_codes.sql", import.meta.url), "utf8"));
+    await db.exec(
+      "CREATE TABLE orders (id TEXT PRIMARY KEY); INSERT INTO orders (id) VALUES ('old')",
+    );
+    await db.exec(
+      readFileSync(
+        new URL("../database/007_order_payment_codes.sql", import.meta.url),
+        "utf8",
+      ),
+    );
     await db.exec("INSERT INTO orders (id) VALUES ('new')");
     const result = await db.query<{ id: string; payment_code: string }>(
       "SELECT id, payment_code FROM orders ORDER BY payment_code",
@@ -178,7 +173,9 @@ test("DH payment codes backfill old orders and remain unique for new orders", as
       { id: "new", payment_code: "DH00000002" },
     ]);
     await assert.rejects(
-      db.query("INSERT INTO orders (id, payment_code) VALUES ('duplicate', 'DH00000001')"),
+      db.query(
+        "INSERT INTO orders (id, payment_code) VALUES ('duplicate', 'DH00000001')",
+      ),
     );
   } finally {
     await db.close();

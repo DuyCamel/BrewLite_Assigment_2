@@ -20,7 +20,10 @@ const payloadHash = createHash("sha256")
   .update(JSON.stringify(paymentInput))
   .digest("hex");
 
-function createProcessingPayment(userId = "user-1") {
+function createProcessingPayment(
+  userId = "user-1",
+  method: PaymentInput["method"] = "WALLET",
+) {
   let payment: PaymentAttemptRecord = {
     id: "payment-1",
     order_id: paymentInput.orderId,
@@ -28,7 +31,7 @@ function createProcessingPayment(userId = "user-1") {
     idempotency_key: "key-1",
     payload_hash: payloadHash,
     amount: 12_000,
-    method: paymentInput.method,
+    method,
     status: "PROCESSING",
   };
   let orderStatus = "PENDING";
@@ -37,12 +40,16 @@ function createProcessingPayment(userId = "user-1") {
 
   const service = new PaymentsService(
     {
-      withTransaction: async (operation: (client: PoolClient) => Promise<unknown>) =>
-        operation({} as PoolClient),
+      withTransaction: async (
+        operation: (client: PoolClient) => Promise<unknown>,
+      ) => operation({} as PoolClient),
     } as never,
     {
-      findByKey: async () => payment,
+      findByKey: async (key: string) =>
+        key === payment.idempotency_key ? payment : null,
       findById: async () => payment,
+      findProcessingForOrder: async () =>
+        payment.status === "PROCESSING" ? payment : null,
       updateResult: async (_id: string, result: "SUCCEEDED" | "FAILED") => {
         payment = { ...payment, status: result };
         return true;
@@ -54,6 +61,8 @@ function createProcessingPayment(userId = "user-1") {
         userId,
         status: orderStatus,
         total: payment.amount,
+        expiresAt: new Date(Date.now() + 900_000),
+        qrExpiresAt: new Date(Date.now() + 300_000),
       }),
       updateStatus: async (_id: string, _from: string, to: string) => {
         orderStatus = to;
@@ -83,7 +92,14 @@ function createProcessingPayment(userId = "user-1") {
       },
     } as never,
   );
-  return { service, charged, earned, get payment() { return payment; } };
+  return {
+    service,
+    charged,
+    earned,
+    get payment() {
+      return payment;
+    },
+  };
 }
 
 function createNewPaymentFlow() {
@@ -94,12 +110,20 @@ function createNewPaymentFlow() {
   let earnCalls = 0;
   let insertCalls = 0;
   let gatewayEffects = 0;
+  let expiresAt = new Date(Date.now() + 900_000);
+  let qrExpiresAt = new Date(Date.now() + 300_000);
+  let qrAttempts = 1;
   const gatewayResults = new Map<string, "SUCCESS" | "FAILED" | "TIMEOUT">();
-  const gatewayInFlight = new Map<string, Promise<"SUCCESS" | "FAILED" | "TIMEOUT">>();
+  const gatewayInFlight = new Map<
+    string,
+    Promise<"SUCCESS" | "FAILED" | "TIMEOUT">
+  >();
 
   const service = new PaymentsService(
     {
-      withTransaction: async <T>(operation: (client: PoolClient) => Promise<T>) => {
+      withTransaction: async <T>(
+        operation: (client: PoolClient) => Promise<T>,
+      ) => {
         const previous = lock;
         let unlock!: () => void;
         lock = new Promise<void>((resolve) => {
@@ -136,6 +160,8 @@ function createNewPaymentFlow() {
         return payment.id;
       },
       findById: async () => payment,
+      findProcessingForOrder: async () =>
+        payment?.status === "PROCESSING" ? payment : null,
       updateResult: async (_id: string, result: "SUCCEEDED" | "FAILED") => {
         if (!payment || payment.status !== "PROCESSING") return false;
         payment = { ...payment, status: result };
@@ -148,6 +174,9 @@ function createNewPaymentFlow() {
         userId: "user-1",
         status: orderStatus,
         total: 12_000,
+        expiresAt,
+        qrExpiresAt,
+        qrAttempts,
       }),
       hasProcessingPayment: async () => payment?.status === "PROCESSING",
       updateStatus: async (_id: string, _from: string, to: string) => {
@@ -183,7 +212,8 @@ function createNewPaymentFlow() {
           gatewayInFlight.delete(key);
         }
       },
-      lookupByKey: async (key: string) => gatewayResults.get(key) ?? "NOT_FOUND",
+      lookupByKey: async (key: string) =>
+        gatewayResults.get(key) ?? "NOT_FOUND",
     } as never,
     {
       releaseStock: async () => {
@@ -202,6 +232,11 @@ function createNewPaymentFlow() {
     gatewayResults,
     setOrderStatus(status: string) {
       orderStatus = status;
+    },
+    setDeadlines(order: Date, qr: Date, attempts = 1) {
+      expiresAt = order;
+      qrExpiresAt = qr;
+      qrAttempts = attempts;
     },
     get state() {
       return {
@@ -232,7 +267,7 @@ test("từ chối thanh toán (BadRequest) nếu phương thức không hợp l�
     fixture.service.createPayment(
       "user-1",
       { ...paymentInput, method: "UNKNOWN" as any },
-      "key-123"
+      "key-123",
     ),
     BadRequestException,
   );
@@ -281,7 +316,11 @@ test("LoyaltyModel tạo id cho EARN và LoyaltyService vẫn ghi giao dịch 0 
   let recordedPoints: number | undefined;
   const service = new LoyaltyService({
     // THÊM : string CHO _userId VÀ _orderId
-    insertEarnOnce: async (_userId: string, _orderId: string, points: number) => {
+    insertEarnOnce: async (
+      _userId: string,
+      _orderId: string,
+      points: number,
+    ) => {
       recordedPoints = points;
     },
   } as never);
@@ -310,7 +349,10 @@ test("hai key khác nhau đồng thời không tạo hai payment live cho một 
     fixture.service.createPayment("user-1", paymentInput, "key-b"),
   ]);
 
-  assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(
+    results.filter((result) => result.status === "fulfilled").length,
+    1,
+  );
   const rejected = results.find((result) => result.status === "rejected");
   assert.ok(rejected && rejected.status === "rejected");
   assert.ok(rejected.reason instanceof ConflictException);
@@ -383,4 +425,90 @@ test("đối soát chỉ chốt kết quả cuối; kết quả chưa rõ tiếp
   );
   assert.equal(reconciled.status, "SUCCEEDED");
   assert.equal(fixtureWithGatewayResult.state.earnCalls, 1);
+});
+
+test("SePay không được thay thế giao dịch CARD đang xử lý", async () => {
+  const fixture = createProcessingPayment("user-1", "CARD");
+  await assert.rejects(
+    fixture.service.createPayment(
+      "user-1",
+      { ...paymentInput, method: "SEPAY" },
+      "new-sepay-key",
+    ),
+    ConflictException,
+  );
+  assert.equal(fixture.payment.status, "PROCESSING");
+  assert.equal(fixture.payment.method, "CARD");
+  assert.equal(fixture.charged.length, 0);
+});
+
+test("SePay dùng lại phiên PROCESSING khi tải lại, không tạo attempt mới", async () => {
+  const fixture = createNewPaymentFlow();
+  const input = { ...paymentInput, method: "SEPAY" as const };
+  const first = await fixture.service.createPayment(
+    "user-1",
+    input,
+    "sepay-first",
+  );
+  const resumed = await fixture.service.createPayment(
+    "user-1",
+    input,
+    "sepay-refresh",
+  );
+  assert.equal(resumed.id, first.id);
+  assert.equal(fixture.state.insertCalls, 1);
+  assert.equal(fixture.state.gatewayEffects, 0);
+});
+
+test("SePay hết hạn QR bị chặn kể cả retry cùng key; không chặn CARD chỉ vì QR hết hạn", async () => {
+  const fixture = createNewPaymentFlow();
+  const input = { ...paymentInput, method: "SEPAY" as const };
+  await fixture.service.createPayment("user-1", input, "sepay-before-expiry");
+  fixture.setDeadlines(
+    new Date(Date.now() + 600_000),
+    new Date(Date.now() - 1000),
+  );
+  await assert.rejects(
+    fixture.service.createPayment("user-1", input, "sepay-before-expiry"),
+    ConflictException,
+  );
+  await assert.rejects(
+    fixture.service.createPayment("user-1", input, "sepay-after-expiry"),
+    ConflictException,
+  );
+  const card = createNewPaymentFlow();
+  card.setDeadlines(
+    new Date(Date.now() + 600_000),
+    new Date(Date.now() - 1000),
+  );
+  assert.equal(
+    (
+      await card.service.createPayment(
+        "user-1",
+        { ...paymentInput, method: "CARD" },
+        "card-valid-order",
+      )
+    ).status,
+    "SUCCEEDED",
+  );
+  const exhausted = createNewPaymentFlow();
+  exhausted.setDeadlines(new Date(Date.now() + 600_000), new Date(Date.now() - 1000), 2);
+  await assert.rejects(exhausted.service.createPayment("user-1", { ...paymentInput, method: "CARD" }, "card-exhausted-qr"), ConflictException);
+});
+
+test("đơn hết hạn không mở payment mới; key nội bộ webhook không nhận từ client", async () => {
+  const fixture = createNewPaymentFlow();
+  fixture.setDeadlines(
+    new Date(Date.now() - 1000),
+    new Date(Date.now() - 1000),
+  );
+  await assert.rejects(
+    fixture.service.createPayment("user-1", paymentInput, "expired-order"),
+    ConflictException,
+  );
+  await assert.rejects(
+    fixture.service.createPayment("user-1", paymentInput, "webhook:sepay:123"),
+    BadRequestException,
+  );
+  assert.equal(fixture.state.insertCalls, 0);
 });

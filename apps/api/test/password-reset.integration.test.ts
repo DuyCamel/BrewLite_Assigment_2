@@ -104,6 +104,35 @@ async function newUser(name: string) {
 }
 const login = (email: string, password: string) =>
   api("/auth/login", { email, password });
+
+test("auth HTTP: email trùng trả 409, message validation nêu đúng lỗi từng trường", async () => {
+  const { email } = await newUser("auth-error-messages");
+  const duplicate = await api("/auth/register", { email: email.toUpperCase(), password: OLD });
+  assert.equal(duplicate.status, 409);
+  assert.deepEqual(duplicate.body, {
+    statusCode: 409,
+    code: "EMAIL_TAKEN",
+    message: "Email này đã được đăng ký. Hãy đăng nhập hoặc dùng email khác.",
+    errors: { email: "Email này đã được đăng ký." },
+  });
+
+  for (const [path, body, expected] of [
+    ["/auth/register", { email, password: "123" }, "Mật khẩu cần ít nhất 8 ký tự."],
+    ["/auth/register", { email: "khong-phai-email", password: OLD }, "Email chưa đúng định dạng, ví dụ ten@example.com."],
+    ["/auth/login", {}, "Nhập email của bạn. Nhập mật khẩu."],
+    ["/auth/forgot-password", {}, "Nhập email của bạn."],
+    ["/auth/reset-password", { token: "invalid", password: "123" }, "Mật khẩu cần ít nhất 8 ký tự."],
+  ] as const) {
+    const response = await api(path, body);
+    assert.equal(response.status, 400);
+    assert.equal(response.body.statusCode, 400);
+    assert.equal(response.body.code, "VALIDATION_FAILED");
+    assert.equal(response.body.message, expected);
+    assert.equal(response.body.message, Object.values(response.body.errors).join(" "));
+    assert.equal(JSON.stringify(response.body).includes(OLD), false);
+  }
+});
+
 async function request(email: string): Promise<string | null> {
   const before = mails.length;
   const result = await api("/auth/forgot-password", { email });

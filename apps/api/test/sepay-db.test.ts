@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { ConflictException } from "@nestjs/common";
 import { PGlite } from "@electric-sql/pglite";
 import type { PoolClient } from "pg";
 import type { DatabaseService } from "../src/config/db.js";
@@ -16,8 +17,8 @@ import { LoyaltyService } from "../src/services/loyalty.service.js";
 import { SepayModel } from "../src/sepay/sepay.model.js";
 import { SepayService } from "../src/sepay/sepay.services.js";
 
-for (const confirm of [false, true]) {
-  test(`simulated SePay transfer pays once ${confirm ? "after UI confirmation" : "without a UI session"}`, async () => {
+for (const method of [null, "SEPAY", "CARD"] as const) {
+  test(`SePay settlement with existing method ${method ?? "none"}`, async () => {
     const pg = new PGlite();
     const previousKey = process.env.SEPAY_WEBHOOK_API_KEY;
     process.env.SEPAY_WEBHOOK_API_KEY = "test-webhook-key";
@@ -102,12 +103,17 @@ for (const confirm of [false, true]) {
           }
         },
       } as DatabaseService;
-      if (confirm) {
+      let sessionId: string | undefined;
+      if (method) {
         const gateway = new MockPaymentGateway();
         gateway.charge = async () =>
-          assert.fail("SePay must not call the mock gateway");
+          method === "CARD"
+            ? "TIMEOUT"
+            : assert.fail("SePay must not call the mock gateway");
         gateway.lookupByKey = async () =>
-          assert.fail("SePay reconciliation must wait for the webhook");
+          method === "CARD"
+            ? "NOT_FOUND"
+            : assert.fail("SePay reconciliation must wait for the webhook");
         const payments = new PaymentsService(
           db,
           new PaymentModel(db),
@@ -116,16 +122,17 @@ for (const confirm of [false, true]) {
           new InventoryService(new InventoryModel()),
           new LoyaltyService(new LoyaltyModel()),
         );
-        const input = { orderId: "order-1", method: "SEPAY" as const };
+        const input = { orderId: "order-1", method };
         const session = await payments.createPayment(
           "customer-1",
           input,
-          "ui-session",
+          "sepay:12345",
         );
+        sessionId = session.id;
         assert.equal(session.status, "PROCESSING");
-        assert.equal(session.method, "SEPAY");
+        assert.equal(session.method, method);
         assert.equal(
-          (await payments.createPayment("customer-1", input, "ui-session")).id,
+          (await payments.createPayment("customer-1", input, "sepay:12345")).id,
           session.id,
         );
         assert.equal(
@@ -146,6 +153,21 @@ for (const confirm of [false, true]) {
         transferAmount: 80000,
         referenceCode: "SB1A2B3C4D5E",
       };
+      if (method === "CARD") {
+        await assert.rejects(
+          service.receiveWebhook(webhook, "Apikey test-webhook-key"),
+          ConflictException,
+        );
+        const unchanged = await detailModel.findDetailForUser(
+          "order-1",
+          "customer-1",
+        );
+        assert.equal(unchanged?.status, "PENDING");
+        assert.equal(unchanged?.payments.length, 1);
+        assert.equal(unchanged?.payments[0].status, "PROCESSING");
+        assert.equal(unchanged?.points_earned, null);
+        return;
+      }
       const first = await service.receiveWebhook(
         webhook,
         "Apikey test-webhook-key",
@@ -157,6 +179,28 @@ for (const confirm of [false, true]) {
       assert.equal(first.orderId, "order-1");
       assert.equal(first.duplicate, false);
       assert.equal(replay.duplicate, true);
+      assert.equal(first.paymentId, replay.paymentId);
+      if (method) assert.equal(first.paymentId, sessionId);
+      const reordered = Object.fromEntries(Object.entries(webhook).reverse());
+      assert.equal(
+        (await service.receiveWebhook(reordered, "Apikey test-webhook-key"))
+          .duplicate,
+        true,
+      );
+      await assert.rejects(
+        service.receiveWebhook(
+          { ...webhook, transferAmount: 80001 },
+          "Apikey test-webhook-key",
+        ),
+        ConflictException,
+      );
+      await assert.rejects(
+        service.receiveWebhook(
+          { ...webhook, content: "DH99999999" },
+          "Apikey test-webhook-key",
+        ),
+        ConflictException,
+      );
       const order = await pg.query<{ status: string }>(
         "SELECT status FROM orders WHERE id = 'order-1'",
       );
@@ -166,7 +210,7 @@ for (const confirm of [false, true]) {
       );
       assert.deepEqual(
         payments.rows.map((payment) => payment.status),
-        confirm ? ["FAILED", "SUCCEEDED"] : ["SUCCEEDED"],
+        ["SUCCEEDED"],
       );
       const earns = await pg.query(
         "SELECT id FROM loyalty_transactions WHERE order_id = 'order-1'",

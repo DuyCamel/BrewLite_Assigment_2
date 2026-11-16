@@ -95,12 +95,18 @@ export class OrderModel {
       `SELECT o.id
        FROM orders o
        WHERE o.status = 'PENDING'
-          AND (o.expires_at < now() OR (o.qr_attempts = 2 AND o.qr_expires_at < now()))
+          AND (o.expires_at <= now() OR (o.qr_expires_at <= now() AND (
+            o.qr_attempts = 2 OR EXISTS (
+              SELECT 1 FROM payments p
+              WHERE p.order_id = o.id AND p.method = 'SEPAY' AND p.status = 'PROCESSING'
+            )
+          )))
          AND NOT EXISTS (
            SELECT 1
            FROM payments p
-           WHERE p.status = 'PROCESSING'
-             AND p.order_id = o.id
+            WHERE p.status = 'PROCESSING'
+              AND p.order_id = o.id
+              AND p.method IN ('CARD', 'WALLET')
          )
        FOR UPDATE OF o SKIP LOCKED`,
     );
@@ -131,6 +137,20 @@ export class OrderModel {
       [orderId],
     );
     return (result.rowCount ?? 0) > 0;
+  }
+
+  async expireSepaySessions(
+    orderId: string,
+    transaction: PoolClient,
+  ): Promise<void> {
+    await transaction.query(
+      `UPDATE payments p SET status = 'FAILED', resolved_at = now()
+       FROM orders o
+       WHERE p.order_id = $1 AND o.id = p.order_id
+         AND p.method = 'SEPAY' AND p.status = 'PROCESSING'
+         AND (o.expires_at <= now() OR o.qr_expires_at <= now())`,
+      [orderId],
+    );
   }
 
   async findItemsForStock(

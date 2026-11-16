@@ -36,7 +36,7 @@ type Order = {
     method: string;
   }>;
 };
-type Payment = { id: string; status: "PROCESSING" | "SUCCEEDED" | "FAILED" };
+type Payment = { id: string; method: "SEPAY" | "CARD" | "WALLET"; status: "PROCESSING" | "SUCCEEDED" | "FAILED" };
 
 async function json<T>(response: APIResponse | Response): Promise<T> {
   expect(
@@ -217,6 +217,19 @@ test("UI checkout preserves the cart, displays the correct QR and pays exactly o
   });
   expect(await cart(page)).toEqual(savedCart);
 
+  let extraAttempts = 0;
+  let mockReconciles = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url() === `${API}/payments`) extraAttempts += 1;
+    if (request.method() === "POST" && request.url().endsWith(`/payments/${session.id}/reconcile`)) mockReconciles += 1;
+  });
+  await page.reload();
+  await expect(qr).toBeVisible();
+  await expect(page.getByRole("button", { name: "Xác nhận & Thanh toán" })).toHaveCount(0);
+  expect((await orderDetail(request, user, id!)).payments).toEqual(processing.payments);
+  expect(extraAttempts).toBe(0);
+  expect(mockReconciles).toBe(0);
+
   const payload = transfer(pending);
   const accepted = await json<{ duplicate: boolean; orderId: string }>(
     await webhook(request, payload),
@@ -231,16 +244,15 @@ test("UI checkout preserves the cart, displays the correct QR and pays exactly o
   await expect.poll(() => cart(page)).toEqual([]);
   const paid = await orderDetail(request, user, id!);
   expect(paid.status).toBe("PAID");
-  expect(paid.payments).toHaveLength(2);
+  expect(paid.payments).toHaveLength(1);
   expect(paid.payments).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
         id: session.id,
         method: "SEPAY",
-        status: "FAILED",
+        status: "SUCCEEDED",
         amount: TOTAL,
       }),
-      expect.objectContaining({ status: "SUCCEEDED", amount: TOTAL }),
     ]),
   );
   expect(paid.pointsEarned).toBe(Math.floor(TOTAL / 10_000));
@@ -346,6 +358,7 @@ for (const method of ["WALLET", "CARD"] as const) {
     const payment = await json<Payment>(
       await request.post(`${API}/payments`, { headers, data }),
     );
+    expect(payment.method).toBe(method);
     expect(["SUCCEEDED", "FAILED", "PROCESSING"]).toContain(payment.status);
     if (payment.status === "PROCESSING") {
       expect((await orderDetail(request, user, order.id)).status).toBe(
@@ -425,3 +438,116 @@ for (const method of ["WALLET", "CARD"] as const) {
     }
   });
 }
+
+for (const method of ["CARD", "WALLET"] as const) {
+  for (const outcome of ["SUCCEEDED", "FAILED", "PROCESSING"] as const) {
+    test(`${method} UI handles ${outcome} without inventing a failed network outcome`, async ({ page, request }) => {
+      const user = await register(request);
+      const order = await createOrder(request, user);
+      const payment = { id: randomUUID(), method, status: outcome, amount: TOTAL };
+      let created = false;
+      let resolved = false;
+      let reconcileCalls = 0;
+      let createCalls = 0;
+      const keys: Array<string | undefined> = [];
+      await page.route(`${API}/orders/${order.id}`, (route) => route.fulfill({
+        json: {
+          ...order,
+          status: !created ? "PENDING" : resolved || outcome === "SUCCEEDED" ? "PAID" : outcome === "FAILED" ? "PAYMENT_FAILED" : "PENDING",
+          payments: created ? [{ ...payment, status: resolved ? "SUCCEEDED" : outcome }] : [],
+          canRetryPayment: outcome === "FAILED",
+        },
+      }));
+      await page.route(`${API}/payments`, async (route) => {
+        expect(route.request().postDataJSON()).toEqual({ orderId: order.id, method });
+        createCalls += 1;
+        keys.push(route.request().headers()["idempotency-key"]);
+        if (outcome === "PROCESSING" && createCalls === 1) {
+          await route.abort("failed");
+          return;
+        }
+        created = true;
+        await route.fulfill({ json: payment });
+      });
+      await page.route(`${API}/payments/${payment.id}/reconcile`, async (route) => {
+        expect(route.request().method()).toBe("POST");
+        reconcileCalls += 1;
+        if (!resolved) {
+          await route.fulfill({ status: 503, json: { message: "Gateway unavailable" } });
+          return;
+        }
+        await route.fulfill({ json: { ...payment, status: "SUCCEEDED" } });
+      });
+      await page.goto(`/login?returnUrl=${encodeURIComponent(`/payment?orderId=${order.id}`)}`);
+      await login(page, user.email);
+      await page.getByLabel("Phương thức thanh toán:").selectOption(method);
+      await page.getByRole("button", { name: "Xác nhận & Thanh toán" }).click();
+      if (outcome === "PROCESSING") {
+        await expect(page.getByRole("alert").filter({ hasText: "Nếu chưa nhận được kết quả" })).toBeVisible();
+        await page.reload();
+        await page.getByLabel("Phương thức thanh toán:").selectOption(method);
+        await page.getByRole("button", { name: "Xác nhận & Thanh toán" }).click();
+        await expect(page.getByRole("heading", { name: "Đang xử lý giao dịch..." })).toBeVisible();
+        expect(keys).toHaveLength(2);
+        expect(keys[0]).toBeTruthy();
+        expect(keys[1]).toBe(keys[0]);
+        await expect(page.getByRole("alert").filter({ hasText: "Giao dịch chưa được xác nhận" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Xác nhận & Thanh toán" })).toHaveCount(0);
+        await page.reload();
+        await expect(page.getByRole("heading", { name: "Đang xử lý giao dịch..." })).toBeVisible();
+        expect(createCalls).toBe(2);
+        expect(reconcileCalls).toBeGreaterThan(0);
+        resolved = true;
+      }
+      await expect(page.getByRole("heading", {
+        name: outcome === "FAILED" ? "Thanh toán không thành công" : "Thanh toán thành công",
+      })).toBeVisible();
+      expect(createCalls).toBe(outcome === "PROCESSING" ? 2 : 1);
+    });
+  }
+}
+
+test("first expired QR can be reissued or use CARD/WALLET, but terminal expiry hides payment actions", async ({ page, request }) => {
+  const user = await register(request);
+  const order = await createOrder(request, user);
+  let expired = false;
+  let reissued = false;
+  const expiredAt = new Date(Date.now() - 60_000).toISOString();
+  const validUntil = new Date(Date.now() + 600_000).toISOString();
+  await page.route(`${API}/orders/${order.id}`, (route) => route.fulfill({
+    json: {
+      ...order,
+      status: "PENDING",
+      payments: [],
+      expiresAt: expired ? expiredAt : validUntil,
+      qrExpiresAt: reissued && !expired ? validUntil : expiredAt,
+      qrAttempts: reissued ? 2 : 1,
+      paymentCode: reissued ? "DH99999999" : order.paymentCode,
+    },
+  }));
+  await page.route(`${API}/orders/${order.id}/reissue-qr`, async (route) => {
+    expect(route.request().method()).toBe("POST");
+    reissued = true;
+    await route.fulfill({ json: { paymentCode: "DH99999999", qrAttempts: 2, qrExpiresAt: validUntil } });
+  });
+  await page.goto(`/login?returnUrl=${encodeURIComponent(`/payment?orderId=${order.id}`)}`);
+  await login(page, user.email);
+  const confirm = page.getByRole("button", { name: "Xác nhận & Thanh toán" });
+  await expect(confirm).toBeDisabled();
+  await expect(page.getByText("QR đã hết hạn.", { exact: false })).toBeVisible();
+  await page.getByLabel("Phương thức thanh toán:").selectOption("CARD");
+  await expect(confirm).toBeEnabled();
+  await page.getByLabel("Phương thức thanh toán:").selectOption("WALLET");
+  await expect(confirm).toBeEnabled();
+  await page.getByRole("button", { name: "Cấp lại mã QR" }).click();
+  await expect(page.getByText(/Đơn #DH99999999/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cấp lại mã QR" })).toHaveCount(0);
+  await page.getByLabel("Phương thức thanh toán:").selectOption("SEPAY");
+  await expect(confirm).toBeEnabled();
+  expired = true;
+  await page.reload();
+  await expect(page.getByText(/Đơn đã hết hạn/)).toBeVisible();
+  await expect(confirm).toHaveCount(0);
+  await expect(page.getByLabel("Phương thức thanh toán:")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Cấp lại mã QR" })).toHaveCount(0);
+});

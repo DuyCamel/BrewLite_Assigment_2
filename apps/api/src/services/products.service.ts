@@ -15,7 +15,7 @@ export class ProductsService {
       return await this.model.findAll();
     } catch {
       throw new ServiceUnavailableException(
-        "Không tải được menu. Kiểm tra database và chạy migration/seed.",
+        "Không tải được menu. Vui lòng thử lại sau.",
       );
     }
   }
@@ -32,7 +32,7 @@ export class ProductsService {
         throw error;
       }
       throw new ServiceUnavailableException(
-        "Không tải được sản phẩm. Kiểm tra database và chạy migration/seed.",
+        "Không tải được sản phẩm. Vui lòng thử lại sau.",
       );
     }
   }

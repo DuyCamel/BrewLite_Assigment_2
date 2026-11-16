@@ -119,12 +119,17 @@ test("postgres model dùng query và không tự fallback seed khi DB lỗi", as
     db.query = async () => {
       throw new Error("DB down, sensitive connection details");
     };
-    await assert.rejects(new ProductsService(model).getProducts(), (error) => {
-      assert.ok(error instanceof Error);
-      assert.ok(!error.message.includes("sensitive"));
-      assert.ok(error.message.includes("Không tải được menu"));
-      return true;
-    });
+    const service = new ProductsService(model);
+    for (const [operation, message] of [
+      [() => service.getProducts(), "Không tải được menu. Vui lòng thử lại sau."],
+      [() => service.getProductDetail("ca-phe-sua"), "Không tải được sản phẩm. Vui lòng thử lại sau."],
+    ] as const) {
+      await assert.rejects(operation(), (error) => {
+        assert.ok(error instanceof Error);
+        assert.equal(error.message, message);
+        return true;
+      });
+    }
   } finally {
     process.env.PRODUCT_DATA_SOURCE = original;
     await db.onModuleDestroy();

@@ -4,11 +4,13 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { DatabaseService } from "../config/db.js";
 import type { SepayWebhookPayload, SepayWebhookResult } from "./sepay.types.js";
-import { SepayModel } from "./sepay.model.js";
+import { SepayModel, type ProviderTransaction } from "./sepay.model.js";
+import { isUniqueViolation } from "../models/db-errors.js";
 
 @Injectable()
 export class SepayService {
@@ -26,85 +28,142 @@ export class SepayService {
     const orderId = this.extractOrderId(webhook.content);
     const providerTransactionId = String(webhook.id);
     const providerReference = webhook.referenceCode ?? null;
-    const payloadHash = createHash("sha256")
-      .update(JSON.stringify(webhook))
-      .digest("hex");
+    const payloadHash = this.hashPayload(webhook);
 
-    return this.db.withTransaction(async (transaction) => {
-      const existing = await this.model.findProviderTransaction(
-        providerTransactionId,
-        transaction,
-      );
-      if (existing) {
+    try {
+      return await this.db.withTransaction(async (transaction) => {
+        const existing = await this.model.findProviderTransaction(
+          providerTransactionId,
+          transaction,
+        );
+        if (existing) {
+          return this.duplicateResult(existing, webhook);
+        }
+
+        const order = await this.model.findOrderForUpdate(orderId, transaction);
+        if (!order) {
+          throw new BadRequestException("Không tìm thấy đơn tương ứng");
+        }
+        // A concurrent delivery may have committed while this request waited for the order lock.
+        const raced = await this.model.findProviderTransaction(
+          providerTransactionId,
+          transaction,
+        );
+        if (raced) return this.duplicateResult(raced, webhook);
+        if (order.qrAttempts === 2 && orderId === order.id) {
+          throw new ConflictException("Mã QR cũ không còn hiệu lực");
+        }
+        if (order.status !== "PENDING") {
+          throw new ConflictException(
+            `Đơn không ở trạng thái PENDING: ${order.status}`,
+          );
+        }
+        if (!order.isUnexpired) {
+          throw new ConflictException("Mã QR của đơn đã hết hạn");
+        }
+        if (webhook.transferAmount !== order.total) {
+          throw new BadRequestException("Số tiền SePay không khớp tổng đơn");
+        }
+
+        const session = await this.model.findProcessingPayment(
+          order.id,
+          transaction,
+        );
+        if (session && session.method !== "SEPAY") {
+          throw new ConflictException(
+            "Đơn đang xử lý thanh toán Ví/Thẻ, cần đối soát trước khi nhận giao dịch SePay",
+          );
+        }
+        const paymentId = session?.id ?? randomUUID();
+        if (session) {
+          await this.model.settleSession(
+            paymentId,
+            providerTransactionId,
+            providerReference,
+            webhook,
+            transaction,
+          );
+        } else {
+          await this.model.insertProcessingPayment(
+            order.id,
+            paymentId,
+            `webhook:sepay:${providerTransactionId}`,
+            payloadHash,
+            webhook.transferAmount,
+            providerTransactionId,
+            providerReference,
+            webhook,
+            transaction,
+          );
+          await this.model.markPaymentSucceeded(paymentId, transaction);
+        }
+        await this.model.markOrderPaid(order.id, transaction);
+        await this.model.insertEarn(
+          order.userId,
+          order.id,
+          Math.floor(order.total / 10000),
+          transaction,
+        );
+
         return {
           accepted: true,
-          duplicate: true,
-          paymentId: existing.paymentId,
-          orderId: existing.orderId,
+          duplicate: false,
+          paymentId,
+          orderId: order.id,
           status: "PAID",
         };
-      }
-
-      const order = await this.model.findOrderForUpdate(orderId, transaction);
-      if (!order) {
-        throw new BadRequestException("Không tìm thấy đơn tương ứng");
-      }
-      if (order.qrAttempts === 2 && orderId === order.id) {
-        throw new ConflictException("Mã QR cũ không còn hiệu lực");
-      }
-      if (order.status !== "PENDING") {
-        throw new ConflictException(
-          `Đơn không ở trạng thái PENDING: ${order.status}`,
+      });
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+      return this.db.withTransaction(async (transaction) => {
+        const existing = await this.model.findProviderTransaction(
+          providerTransactionId,
+          transaction,
         );
-      }
-      if (!order.isUnexpired) {
-        throw new ConflictException("Mã QR của đơn đã hết hạn");
-      }
-      if (webhook.transferAmount !== order.total) {
-        throw new BadRequestException("Số tiền SePay không khớp tổng đơn");
-      }
+        if (existing) return this.duplicateResult(existing, webhook);
+        throw new ConflictException(
+          "Giao dịch vừa thay đổi hoặc trùng khóa, cần đối soát trước khi thử lại",
+        );
+      });
+    }
+  }
 
-      // Đánh dấu giao dịch giữ chỗ của giao diện là FAILED để nhường chỗ cho Webhook
-      await transaction.query(
-        `UPDATE payments SET status = 'FAILED', resolved_at = NOW() WHERE order_id = $1 AND status = 'PROCESSING'`, 
-        [order.id]
-      );
+  private hashPayload(payload: SepayWebhookPayload): string {
+    return createHash("sha256")
+      .update(JSON.stringify(payload, Object.keys(payload).sort()))
+      .digest("hex");
+  }
 
-      const paymentId = randomUUID();
-      await this.model.insertProcessingPayment(
-        order.id,
-        paymentId,
-        `sepay:${providerTransactionId}`,
-        payloadHash,
-        webhook.transferAmount,
-        providerTransactionId,
-        providerReference,
-        webhook,
-        transaction,
+  private duplicateResult(
+    existing: ProviderTransaction,
+    webhook: SepayWebhookPayload,
+  ): SepayWebhookResult {
+    if (
+      !existing.payload ||
+      this.hashPayload(existing.payload) !== this.hashPayload(webhook)
+    ) {
+      throw new ConflictException(
+        "Mã giao dịch SePay đã được dùng với nội dung khác",
       );
-      await this.model.markPaymentSucceeded(paymentId, transaction);
-      await this.model.markOrderPaid(order.id, transaction);
-      await this.model.insertEarn(
-        order.userId,
-        order.id,
-        Math.floor(order.total / 10000),
-        transaction,
-      );
-
-      return {
-        accepted: true,
-        duplicate: false,
-        paymentId,
-        orderId: order.id,
-        status: "PAID",
-      };
-    });
+    }
+    return {
+      accepted: true,
+      duplicate: true,
+      paymentId: existing.paymentId,
+      orderId: existing.orderId,
+      status: "PAID",
+    };
   }
 
   private assertAuthorization(header: string | undefined): void {
     const configured = process.env.SEPAY_WEBHOOK_API_KEY;
-    if (!configured || !header) {
+    if (!header) {
       throw new UnauthorizedException("Webhook SePay chưa được xác thực");
+    }
+    if (!configured) {
+      throw new ServiceUnavailableException(
+        "Máy chủ chưa cấu hình webhook SePay. Liên hệ người quản trị.",
+      );
     }
 
     const prefix = "Apikey ";
@@ -128,7 +187,8 @@ export class SepayService {
     }
     const payload = value as Partial<SepayWebhookPayload>;
     if (
-      !Number.isInteger(payload.id) ||
+      !Number.isSafeInteger(payload.id) ||
+      (payload.id ?? 0) <= 0 ||
       typeof payload.content !== "string" ||
       payload.content.trim() === "" ||
       payload.transferType !== "in" ||

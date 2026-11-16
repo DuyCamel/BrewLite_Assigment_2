@@ -24,6 +24,7 @@ export async function createTestDb(): Promise<PGlite> {
   await db.exec(sql("007_order_payment_codes.sql"));
   await db.exec(sql("009_qr_reissue.sql"));
   await db.exec(sql("010_product_inventory.sql"));
+  await db.exec(sql("011_sepay_payment_method.sql"));
   await db.exec(sql("002_seed.sql"));
   // Sản phẩm riêng với tồn kho theo nguyên liệu để các test không phụ thuộc menu mẫu.
   await db.query(
@@ -184,6 +185,7 @@ export async function createIngredientTestDb(): Promise<PGlite> {
     "007_order_payment_codes.sql",
     "009_qr_reissue.sql",
     "010_product_inventory.sql",
+    "011_sepay_payment_method.sql",
     "002_seed.sql",
     "003_catalog.sql",
     "004_image_urls.sql",

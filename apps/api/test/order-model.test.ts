@@ -229,6 +229,46 @@ test("findExpiredPendingOrders và hasProcessingPayment", async () => {
   );
 });
 
+test("expiry candidates include expired SePay QR sessions but never processing CARD or WALLET", async () => {
+  for (const [id, method, attempts, expiredQr, expiredOrder] of [
+    ["m-sepay-first", "SEPAY", 1, true, false],
+    ["m-sepay-second", "SEPAY", 2, true, false],
+    ["m-sepay-overall", "SEPAY", 1, false, true],
+    ["m-sepay-live", "SEPAY", 1, false, false],
+    ["m-card-first", "CARD", 1, true, false],
+    ["m-wallet-second", "WALLET", 2, true, false],
+    ["m-wallet-overall", "WALLET", 1, false, true],
+    ["m-first-no-session", null, 1, true, false],
+  ] as const) {
+    await createPending(id);
+    await tx(async (c) => {
+      if (method) {
+        await c.query(
+          `INSERT INTO payments (id, order_id, idempotency_key, payload_hash, amount, method)
+           VALUES ($1, $2, $1, repeat('c', 64), $3, $4)`,
+          [`pay-${id}`, id, UNIT_S, method],
+        );
+      }
+      await c.query(
+        `UPDATE orders SET qr_attempts = $2,
+         qr_expires_at = CASE WHEN $3 THEN now() - interval '1 second' ELSE qr_expires_at END,
+         expires_at = CASE WHEN $4 THEN created_at + interval '1 millisecond' ELSE expires_at END
+         WHERE id = $1`,
+        [id, attempts, expiredQr, expiredOrder],
+      );
+    });
+  }
+  const ids = await tx((c) => model.findExpiredPendingOrders(c));
+  for (const id of ["m-sepay-first", "m-sepay-second", "m-sepay-overall"]) {
+    assert.ok(ids.includes(id), id);
+    assert.equal(await tx((c) => model.hasProcessingPayment(id, c)), true);
+  }
+  for (const id of ["m-sepay-live", "m-card-first", "m-wallet-second", "m-wallet-overall", "m-first-no-session"]) {
+    assert.ok(!ids.includes(id), id);
+  }
+  assert.equal(await tx((c) => model.hasProcessingPayment("m-wallet-overall", c)), true);
+});
+
 test("findForPricing trả giá, size, topping và bỏ qua id không tồn tại", async () => {
   const rows = await tx((c) =>
     model.findForPricing([PRODUCT_ID, "khong-co"], c),

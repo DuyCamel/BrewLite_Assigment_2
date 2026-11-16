@@ -1,6 +1,6 @@
 // TV6 — Gọi backend TỪ TRÌNH DUYỆT (lib/api.ts hiện chỉ dùng phía server). Không viết SQL/secret ở đây.
 // Mọi request đi qua request(). Token lấy từ phiên đăng nhập của TV3 (getAccessToken).
-import type { OrderDetail,OrderListPage} from "@/types/customer-order";
+import type { OrderDetail, OrderListPage, PaymentMethod, PaymentSession } from "@/types/customer-order";
 import { clearSession, loadSession } from "@/features/auth/session";
 
 // Cần cấu hình khi build production (Docker/CD): NEXT_PUBLIC_API_BASE_URL=https://<api>.
@@ -112,10 +112,18 @@ export function reissueOrderQr(orderId: string): Promise<unknown> {
   });
 }
 
-export function reconcilePayment(paymentId: string): Promise<unknown> {
-  return request<unknown>(
+export function createPayment(orderId: string, method: PaymentMethod, idempotencyKey: string): Promise<PaymentSession> {
+  return request<PaymentSession>("/payments", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ orderId, method }),
+  });
+}
+
+export function reconcilePayment(paymentId: string, signal?: AbortSignal): Promise<PaymentSession> {
+  return request<PaymentSession>(
     `/payments/${encodeURIComponent(paymentId)}/reconcile`,
-    { method: "POST" },
+    { method: "POST", signal },
   );
 }
 

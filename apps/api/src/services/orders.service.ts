@@ -178,6 +178,7 @@ export class OrdersService {
           `Không thể hủy đơn đang ở trạng thái ${order.status}`,
         );
       }
+      await this.orderModel.expireSepaySessions(orderId, client);
       if (await this.orderModel.hasProcessingPayment(orderId, client)) {
         throw new ConflictException("Đơn đang có thanh toán xử lý, chưa thể hủy");
       }
@@ -212,6 +213,7 @@ export class OrdersService {
           if (order === null || order.status !== "PENDING") {
             return;
           }
+          await this.orderModel.expireSepaySessions(orderId, client);
           if (
             new Date(order.expiresAt).getTime() > Date.now() &&
             (order.qrAttempts < 2 ||
@@ -247,6 +249,7 @@ export class OrdersService {
       if (!order || order.userId !== userId) {
         throw new NotFoundException("Không tìm thấy đơn hàng");
       }
+      await this.orderModel.expireSepaySessions(orderId, client);
       if (
         order.status !== "PENDING" ||
         order.qrAttempts !== 1 ||

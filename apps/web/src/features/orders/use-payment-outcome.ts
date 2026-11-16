@@ -50,7 +50,7 @@ export function usePaymentOutcome(orderId: string | null) {
         let order = await fetchOrderDetail(orderId, controller.signal);
         if (controller.signal.aborted) return;
         const latestPayment = order.payments[0];
-        if (latestPayment?.status === "PROCESSING") {
+        if (latestPayment?.status === "PROCESSING" && latestPayment.method !== "SEPAY") {
           await reconcilePayment(latestPayment.id);
           if (controller.signal.aborted) return;
           order = await fetchOrderDetail(orderId, controller.signal);

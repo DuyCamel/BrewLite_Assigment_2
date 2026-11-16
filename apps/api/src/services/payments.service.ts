@@ -12,7 +12,8 @@ import { OrderModel } from "../models/order.model.js";
 import { MockPaymentGateway } from "../gateways/mock-payment.gateway.js";
 import { InventoryService } from "./inventory.service.js";
 import { LoyaltyService } from "./loyalty.service.js";
-import type { PaymentInput, PaymentResult } from "../types/contracts.js";
+import type { OrderRecord } from "../types/order.types.js";
+import type { PaymentInput } from "../types/contracts.js";
 
 type GatewayResult = "SUCCESS" | "FAILED" | "TIMEOUT";
 const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
@@ -50,13 +51,11 @@ export class PaymentsService {
         if (transactionExisting) return transactionExisting;
 
         if (order.status !== "PENDING") throw new ConflictException(`Không thể thanh toán đơn hàng đang ở trạng thái ${order.status}`);
-        if (await this.orderModel.hasProcessingPayment(input.orderId, client)) {
-          if (input.method === "SEPAY") {
-            // Đánh dấu giao dịch cũ là FAILED thay vì xóa nó
-            await client.query(`UPDATE payments SET status = 'FAILED', resolved_at = NOW() WHERE order_id = $1 AND status = 'PROCESSING'`, [input.orderId]);
-          } else {
-            throw new ConflictException("Đơn hàng đang có giao dịch xử lý");
-          }
+        this.assertPaymentWindow(order, input.method);
+        const processing = await this.paymentModel.findProcessingForOrder(input.orderId, client);
+        if (processing) {
+          if (input.method === "SEPAY" && processing.method === "SEPAY") return processing;
+          throw new ConflictException("Đơn hàng đang có giao dịch xử lý, hãy chờ kết quả hoặc đối soát");
         }
         const paymentId = await this.paymentModel.insertAttempt(
           input, order.total, idempotencyKey, payloadHash, client
@@ -124,6 +123,9 @@ export class PaymentsService {
     if (typeof idempotencyKey !== "string" || idempotencyKey.trim() === "" || idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
       throw new BadRequestException("Idempotency-Key không hợp lệ");
     }
+    if (idempotencyKey.startsWith("webhook:")) {
+      throw new BadRequestException("Idempotency-Key không được dùng tiền tố nội bộ webhook:");
+    }
     if (typeof input?.orderId !== "string" || input.orderId.trim() === "" || (input.method !== "WALLET" && input.method !== "CARD" && input.method !== "SEPAY")) {
       throw new BadRequestException("Thông tin thanh toán không hợp lệ");
     }
@@ -137,7 +139,26 @@ export class PaymentsService {
     if (payment.user_id !== userId) throw new NotFoundException("Không tìm thấy giao dịch thanh toán");
     if (payment.payload_hash !== payloadHash) throw new ConflictException("Idempotency-Key đã được dùng cho payload khác");
     if (payment.status !== "PROCESSING") return payment;
+    if (payment.method === "SEPAY") {
+      await this.db.withTransaction(async (client) => {
+        const order = await this.orderModel.findForUpdate(payment.order_id, client);
+        if (!order || order.status !== "PENDING") throw new ConflictException("Đơn hàng không còn chờ thanh toán");
+        this.assertPaymentWindow(order, payment.method);
+      });
+    }
     return this.chargeAndFinalize(payment);
+  }
+
+  private assertPaymentWindow(order: OrderRecord, method: PaymentInput["method"]): void {
+    if (new Date(order.expiresAt).getTime() <= Date.now()) {
+      throw new ConflictException("Đơn hàng đã hết hạn thanh toán");
+    }
+    if (order.qrAttempts === 2 && new Date(order.qrExpiresAt).getTime() <= Date.now()) {
+      throw new ConflictException("Đơn hàng đã hết lượt QR và hết hạn thanh toán");
+    }
+    if (method === "SEPAY" && new Date(order.qrExpiresAt).getTime() <= Date.now()) {
+      throw new ConflictException("Mã QR đã hết hạn. Hãy cấp lại QR nếu đơn còn đủ điều kiện.");
+    }
   }
 
   private async chargeAndFinalize(payment: PaymentAttemptRecord): Promise<PaymentAttemptRecord> {

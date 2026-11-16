@@ -20,6 +20,55 @@ import {
   ConfigurationError,
   paymentLifetimes,
 } from "../src/config/environment.js";
+import {
+  createTestDb,
+  makeFakeDatabase,
+  PRODUCT_ID,
+  readOrder,
+  readStock,
+  UNIT_S,
+  USER_ID,
+} from "./tv4-helpers.js";
+
+test("expired first QR finalizes SePay without cancelling or releasing stock, then allows reissue", async () => {
+  const pg = await createTestDb();
+  try {
+    await pg.exec(readFileSync(new URL("../database/011_sepay_payment_method.sql", import.meta.url), "utf8"));
+    const orders = new OrdersService(
+      makeFakeDatabase(pg),
+      new OrderModel(),
+      new InventoryService(new InventoryModel()),
+      new PromotionsService({ findByCode: async () => null } as never),
+    );
+    await orders.expirePendingOrders();
+    const created = await orders.createOrder(USER_ID, {
+      items: [{ productId: PRODUCT_ID, size: "S", toppingIds: [], quantity: 1 }],
+    });
+    await pg.query(
+      `INSERT INTO payments (id, order_id, idempotency_key, payload_hash, amount, method)
+       VALUES ('first-sepay', $1, 'first-sepay', repeat('c', 64), $2, 'SEPAY')`,
+      [created.orderId, UNIT_S],
+    );
+    await pg.query("UPDATE orders SET qr_expires_at = now() - interval '1 second' WHERE id = $1", [created.orderId]);
+    assert.equal(await orders.expirePendingOrders(), 0);
+    const payment = (await pg.query<{ status: string; resolved_at: Date }>(
+      "SELECT status, resolved_at FROM payments WHERE id = 'first-sepay'",
+    )).rows[0];
+    assert.equal(payment.status, "FAILED");
+    assert.ok(payment.resolved_at);
+    assert.equal((await readOrder(pg, created.orderId)).status, "PENDING");
+    assert.equal((await readOrder(pg, created.orderId)).stock_released, false);
+    assert.equal(await readStock(pg), 9);
+    assert.equal(await orders.expirePendingOrders(), 0);
+    assert.deepEqual((await pg.query("SELECT status, resolved_at FROM payments WHERE id = 'first-sepay'")).rows[0], payment);
+    const renewed = await orders.reissueQr(USER_ID, created.orderId);
+    assert.equal(renewed.qrAttempts, 2);
+    assert.notEqual(renewed.paymentCode, created.paymentCode);
+    assert.equal(await readStock(pg), 9);
+  } finally {
+    await pg.close();
+  }
+});
 
 test("order lifetime must be at least twice QR lifetime", () => {
   const previousOrder = process.env.ORDER_TTL_MINUTES;
@@ -46,6 +95,85 @@ test("order lifetime must be at least twice QR lifetime", () => {
   }
 });
 
+for (const scenario of [
+  { method: "SEPAY", expiry: "first", action: "reissue" },
+  { method: "SEPAY", expiry: "first", action: "cancel" },
+  { method: "SEPAY", expiry: "live", action: "cancel" },
+  { method: "SEPAY", expiry: "order", action: "cleanup" },
+  { method: "SEPAY", expiry: "second", action: "cleanup" },
+  ...["CARD", "WALLET"].flatMap((method) =>
+    ["first", "order", "second"].map((expiry) => ({ method, expiry, action: "protected" })),
+  ),
+]) {
+  test(`${scenario.method} ${scenario.expiry} expiry: ${scenario.action} preserves payment and stock safety`, async () => {
+    const pg = await createTestDb();
+    try {
+      await pg.exec(readFileSync(new URL("../database/011_sepay_payment_method.sql", import.meta.url), "utf8"));
+      const orders = new OrdersService(
+        makeFakeDatabase(pg),
+        new OrderModel(),
+        new InventoryService(new InventoryModel()),
+        new PromotionsService({ findByCode: async () => null } as never),
+      );
+      await orders.expirePendingOrders();
+      const created = await orders.createOrder(USER_ID, {
+        items: [{ productId: PRODUCT_ID, size: "S", toppingIds: [], quantity: 1 }],
+      });
+      await pg.query(
+        `INSERT INTO payments (id, order_id, idempotency_key, payload_hash, amount, method)
+         VALUES ('session', $1, 'session', repeat('c', 64), $2, $3)`,
+        [created.orderId, UNIT_S, scenario.method],
+      );
+      if (scenario.expiry !== "live") {
+        await pg.query(
+          "UPDATE orders SET qr_expires_at = now() - interval '1 second' WHERE id = $1",
+          [created.orderId],
+        );
+      }
+      if (scenario.expiry === "order") {
+        await pg.query(
+          "UPDATE orders SET expires_at = created_at + interval '1 millisecond', qr_expires_at = now() + interval '5 minutes' WHERE id = $1",
+          [created.orderId],
+        );
+      }
+      if (scenario.expiry === "second") {
+        await pg.query("UPDATE orders SET qr_attempts = 2 WHERE id = $1", [created.orderId]);
+      }
+      const deadline = (await pg.query("SELECT expires_at FROM orders WHERE id = $1", [created.orderId])).rows[0];
+      const protectedPayment = scenario.action === "protected" || scenario.expiry === "live";
+      if (protectedPayment) {
+        assert.equal(await orders.expirePendingOrders(), 0);
+        await assert.rejects(() => orders.reissueQr(USER_ID, created.orderId), ConflictException);
+        await assert.rejects(() => orders.cancelOrder(USER_ID, created.orderId), ConflictException);
+      } else if (scenario.action === "reissue") {
+        await assert.rejects(() => orders.reissueQr("other-user", created.orderId), NotFoundException);
+        assert.equal((await pg.query("SELECT status FROM payments WHERE id = 'session'")).rows[0].status, "PROCESSING");
+        assert.equal((await orders.reissueQr(USER_ID, created.orderId)).qrAttempts, 2);
+        await assert.rejects(() => orders.reissueQr(USER_ID, created.orderId), ConflictException);
+      } else if (scenario.action === "cancel") {
+        assert.equal((await orders.cancelOrder(USER_ID, created.orderId)).status, "CANCELLED");
+        await assert.rejects(() => orders.cancelOrder(USER_ID, created.orderId), ConflictException);
+      } else {
+        assert.equal(await orders.expirePendingOrders(), 1);
+        assert.equal(await orders.expirePendingOrders(), 0);
+      }
+      const cancelled = !protectedPayment && scenario.action !== "reissue";
+      const order = await readOrder(pg, created.orderId);
+      assert.equal(order.status, cancelled ? "CANCELLED" : "PENDING");
+      assert.equal(order.stock_released, cancelled);
+      assert.equal(await readStock(pg), cancelled ? 10 : 9);
+      const payment = (await pg.query<{ status: string; resolved_at: Date | null }>(
+        "SELECT status, resolved_at FROM payments WHERE id = 'session'",
+      )).rows[0];
+      assert.equal(payment.status, protectedPayment ? "PROCESSING" : "FAILED");
+      assert.equal(payment.resolved_at === null, protectedPayment);
+      assert.deepEqual((await pg.query("SELECT expires_at FROM orders WHERE id = $1", [created.orderId])).rows[0], deadline);
+    } finally {
+      await pg.close();
+    }
+  });
+}
+
 test("QR chi duoc cap lai mot lan; ma cu bi tu choi, het luot hai thi huy va hoan ton", async () => {
   const pg = new PGlite();
   const previousKey = process.env.SEPAY_WEBHOOK_API_KEY;
@@ -59,6 +187,7 @@ test("QR chi duoc cap lai mot lan; ma cu bi tu choi, het luot hai thi huy va hoa
       "001_schema.sql",
       "007_order_payment_codes.sql",
       "009_qr_reissue.sql",
+      "011_sepay_payment_method.sql",
     ]) {
       await pg.exec(
         readFileSync(new URL(`../database/${name}`, import.meta.url), "utf8"),

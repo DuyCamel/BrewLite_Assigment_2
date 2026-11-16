@@ -65,6 +65,18 @@ export class PaymentModel {
     return result.rows[0] || null;
   }
 
+  async findProcessingForOrder(
+    orderId: string,
+    transaction: PoolClient,
+  ): Promise<PaymentAttemptRecord | null> {
+    const result = await transaction.query<PaymentAttemptRecord>(
+      `SELECT p.*, o.user_id FROM payments p JOIN orders o ON o.id = p.order_id
+       WHERE p.order_id = $1 AND p.status = 'PROCESSING'`,
+      [orderId],
+    );
+    return result.rows[0] ?? null;
+  }
+
   async updateResult(
     paymentId: string,
     result: Exclude<PaymentResult, "UNKNOWN">,

@@ -1,18 +1,22 @@
 import { Injectable } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
+import type { SepayWebhookPayload } from "./sepay.types.js";
+
+export interface ProviderTransaction {
+  paymentId: string;
+  orderId: string;
+  payload: SepayWebhookPayload | null;
+}
 
 @Injectable()
 export class SepayModel {
   async findProviderTransaction(
     providerTransactionId: string,
     transaction: PoolClient,
-  ): Promise<{ paymentId: string; orderId: string } | null> {
-    const result = await transaction.query<{
-      paymentId: string;
-      orderId: string;
-    }>(
-      `SELECT id AS "paymentId", order_id AS "orderId"
+  ): Promise<ProviderTransaction | null> {
+    const result = await transaction.query<ProviderTransaction>(
+      `SELECT id AS "paymentId", order_id AS "orderId", provider_payload AS payload
        FROM payments
        WHERE provider = 'SEPAY' AND provider_transaction_id = $1`,
       [providerTransactionId],
@@ -55,13 +59,42 @@ export class SepayModel {
          (id, order_id, idempotency_key, payload_hash, amount, method,
           status, provider, provider_transaction_id, provider_reference,
           provider_payload)
-       VALUES ($1, $2, $3, $4, $5, 'WALLET', 'PROCESSING', 'SEPAY', $6, $7, $8::jsonb)`,
+        VALUES ($1, $2, $3, $4, $5, 'SEPAY', 'PROCESSING', 'SEPAY', $6, $7, $8::jsonb)`,
       [
         paymentId,
         orderId,
         idempotencyKey,
         payloadHash,
         amount,
+        providerTransactionId,
+        providerReference,
+        JSON.stringify(payload),
+      ],
+    );
+  }
+
+  async findProcessingPayment(orderId: string, transaction: PoolClient) {
+    const result = await transaction.query<{ id: string; method: string }>(
+      "SELECT id, method FROM payments WHERE order_id = $1 AND status = 'PROCESSING'",
+      [orderId],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  async settleSession(
+    paymentId: string,
+    providerTransactionId: string,
+    providerReference: string | null,
+    payload: SepayWebhookPayload,
+    transaction: PoolClient,
+  ): Promise<void> {
+    await transaction.query(
+      `UPDATE payments SET status = 'SUCCEEDED', resolved_at = now(),
+         provider = 'SEPAY', provider_transaction_id = $2, provider_reference = $3,
+         provider_payload = $4::jsonb, webhook_received_at = now()
+       WHERE id = $1 AND status = 'PROCESSING' AND method = 'SEPAY'`,
+      [
+        paymentId,
         providerTransactionId,
         providerReference,
         JSON.stringify(payload),

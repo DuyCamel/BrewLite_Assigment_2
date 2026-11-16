@@ -51,6 +51,8 @@ export interface PaymentAttemptView {
   resolvedAt: string | null;
 }
 
+export type PaymentSession = Pick<PaymentAttemptView, "id" | "method" | "status" | "amount">;
+
 export interface OrderDetail {
   id: string;
   paymentCode: string;

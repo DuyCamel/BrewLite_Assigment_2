@@ -42,7 +42,7 @@ export function validationException(errors: FieldErrors): BadRequestException {
   return new BadRequestException({
     statusCode: 400,
     code: "VALIDATION_FAILED",
-    message: "Thông tin chưa hợp lệ. Kiểm tra các ô được đánh dấu.",
+    message: Object.values(errors).join(" "),
     errors,
   });
 }

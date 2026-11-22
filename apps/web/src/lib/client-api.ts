@@ -15,6 +15,7 @@ export class ApiError extends Error {
   ) {
     super(message);
     this.name = "ApiError";
+    Object.setPrototypeOf(this, ApiError.prototype);
   }
 }
 
@@ -129,12 +130,14 @@ export function reconcilePayment(paymentId: string, signal?: AbortSignal): Promi
 
 /** Thông báo thân thiện cho người dùng; không lộ chi tiết lỗi máy chủ. */
 export function describeError(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 0) return "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.";
-    if (error.status === 501) return "Chức năng này chưa sẵn sàng.";
-    if (error.status >= 500) return "Máy chủ đang gặp sự cố, vui lòng thử lại sau.";
-    return error.message;
+  if (error instanceof ApiError || (typeof error === "object" && error !== null && "status" in error)) {
+    const apiErr = error as { status: number; message: string };
+    if (apiErr.status === 0) return "Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.";
+    if (apiErr.status === 501) return "Chức năng này chưa sẵn sàng.";
+    if (apiErr.status >= 500) return "Máy chủ đang gặp sự cố, vui lòng thử lại sau.";
+    return apiErr.message;
   }
+  if (error instanceof Error && error.message) return error.message;
   return "Có lỗi xảy ra, vui lòng thử lại.";
 }
 

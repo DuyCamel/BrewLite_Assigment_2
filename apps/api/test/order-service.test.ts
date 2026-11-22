@@ -87,6 +87,22 @@ beforeEach(async () => {
   await setStock(db, 10);
 });
 
+test("orders with promotions reuse their transaction instead of acquiring another pool connection", async () => {
+  const transactionOnlyDb = makeFakeDatabase(db);
+  transactionOnlyDb.query = async () => {
+    throw new Error("No spare pool connection while the transaction is open");
+  };
+  const promotionService = new PromotionsService(new PromotionModel(transactionOnlyDb));
+  const orderService = new OrdersService(transactionOnlyDb, new OrderModel(), inventory, promotionService);
+  const result = await orderService.createOrder(USER_ID, {
+    items: [line(1)],
+    promotionCode: "TV4PCT10",
+  });
+  assert.equal(result.discount, UNIT_S / 10);
+  assert.equal(result.total, UNIT_S - result.discount);
+  assert.equal(await readStock(db), 9);
+});
+
 const line = (quantity: number, size = "S", toppingIds: string[] = []) => ({
   productId: PRODUCT_ID,
   size,

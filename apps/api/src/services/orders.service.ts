@@ -39,7 +39,7 @@ export class OrdersService {
 
   async validatePromotion(code: string, subtotal: number) {
     const promotion = await this.promotionsService.validatePromotion(code, subtotal);
-    const discount = await this.promotionsService.calculateDiscount(code, subtotal);
+    const discount = this.promotionsService.discountFor(promotion, subtotal);
     return { code: promotion.code, discount, total: subtotal - discount };
   }
 
@@ -154,8 +154,8 @@ export class OrdersService {
     let promotionId: string | null = null;
     const promotionCode = input.promotionCode?.trim();
     if (promotionCode) {
-      const promotion = await this.promotionsService.validatePromotion(promotionCode, subtotal);
-      discount = await this.promotionsService.calculateDiscount(promotionCode, subtotal);
+      const promotion = await this.promotionsService.validatePromotion(promotionCode, subtotal, client);
+      discount = this.promotionsService.discountFor(promotion, subtotal);
       promotionId = promotion.id;
     }
     if (!Number.isInteger(discount) || discount < 0 || discount > subtotal) {

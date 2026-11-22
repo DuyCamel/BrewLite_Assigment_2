@@ -2,6 +2,7 @@
 import { BadRequestException, Inject, Injectable } from "@nestjs/common";
 import { PromotionModel } from "../models/promotion.model.js";
 import type { Promotion } from "../types/promotion.js";
+import type { PoolClient } from "pg";
 
 @Injectable()
 export class PromotionsService {
@@ -9,7 +10,7 @@ export class PromotionsService {
     @Inject(PromotionModel) private readonly promotionModel: PromotionModel,
   ) {}
 
-  async validatePromotion(code: string, subtotal: number): Promise<Promotion> {
+  async validatePromotion(code: string, subtotal: number, client?: PoolClient): Promise<Promotion> {
     const normalizedCode = code.trim().toUpperCase();
     if (!normalizedCode) {
       throw new BadRequestException("Mã giảm giá không được để trống");
@@ -18,7 +19,7 @@ export class PromotionsService {
       throw new BadRequestException("Subtotal không hợp lệ");
     }
 
-    const promotion = await this.promotionModel.findByCode(normalizedCode);
+    const promotion = await this.promotionModel.findByCode(normalizedCode, client);
     if (!promotion) {
       throw new BadRequestException("Mã giảm giá không tồn tại");
     }
@@ -41,8 +42,12 @@ export class PromotionsService {
     return promotion;
   }
 
-  async calculateDiscount(code: string, subtotal: number): Promise<number> {
-    const promotion = await this.validatePromotion(code, subtotal);
+  async calculateDiscount(code: string, subtotal: number, client?: PoolClient): Promise<number> {
+    const promotion = await this.validatePromotion(code, subtotal, client);
+    return this.discountFor(promotion, subtotal);
+  }
+
+  discountFor(promotion: Promotion, subtotal: number): number {
     let discount = 0;
     if (promotion.type === "PERCENT") {
       discount = Math.floor((subtotal * promotion.value) / 100);

@@ -19,6 +19,25 @@ export function dataSource(): "postgres" | "sample" {
     );
   return value;
 }
+export function databasePoolConfig() {
+  const settings = {
+    max: Number(process.env.DB_POOL_MAX ?? "20"),
+    acquireTimeoutMs: Number(process.env.DB_POOL_ACQUIRE_TIMEOUT_MS ?? "30000"),
+    maxWaiting: Number(process.env.DB_POOL_MAX_WAITING ?? "6000"),
+  };
+  for (const [name, value, minimum, maximum] of [
+    ["DB_POOL_MAX", settings.max, 1, 64],
+    ["DB_POOL_ACQUIRE_TIMEOUT_MS", settings.acquireTimeoutMs, 100, 120000],
+    ["DB_POOL_MAX_WAITING", settings.maxWaiting, 1, 20000],
+  ] as const) {
+    if (!Number.isInteger(value) || value < minimum || value > maximum) {
+      throw new ConfigurationError(
+        `${name} phải là số nguyên từ ${minimum} đến ${maximum}`,
+      );
+    }
+  }
+  return settings;
+}
 export function paymentLifetimes(): {
   orderMinutes: number;
   qrMinutes: number;

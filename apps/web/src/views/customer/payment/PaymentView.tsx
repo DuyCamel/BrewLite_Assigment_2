@@ -9,6 +9,17 @@ import { formatVnd } from "@/features/orders/order-format";
 import { ErrorBlock, LoadingBlock } from "@/components/orders/OrderBlocks";
 import "./payment.css";
 
+function generateUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export function PaymentView() {
   return (
     <Suspense fallback={<LoadingBlock text="Đang tải thông tin thanh toán" />}>
@@ -126,7 +137,7 @@ function PaymentContent() {
     try {
       // Keep the key across uncertain network outcomes, including a page refresh.
       const storageKey = `payment:${order.id}:${order.paymentCode}:${paymentMethod}`;
-      const idempotencyKey = sessionStorage.getItem(storageKey) ?? crypto.randomUUID();
+      const idempotencyKey = sessionStorage.getItem(storageKey) ?? generateUUID();
       sessionStorage.setItem(storageKey, idempotencyKey);
       const result = await createPayment(order.id, paymentMethod, idempotencyKey);
       setPaymentSession(result);

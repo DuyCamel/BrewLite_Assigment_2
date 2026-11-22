@@ -35,10 +35,10 @@ services:
       SEPAY_WEBHOOK_API_KEY: ${SEPAY_WEBHOOK_API_KEY:?Hay dat SEPAY_WEBHOOK_API_KEY trong .env}
       ORDER_TTL_MINUTES: ${ORDER_TTL_MINUTES:-15}
       QR_TTL_MINUTES: ${QR_TTL_MINUTES:-5}
-      FRONTEND_ORIGIN: http://localhost:3000
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
       PRODUCT_DATA_SOURCE: postgres
     ports:
-      - "127.0.0.1:${API_PORT:-4000}:4000"
+      - "${API_PORT:-4000}:4000"
     depends_on:
       db:
         condition: service_healthy
@@ -58,13 +58,14 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4000}
         NEXT_PUBLIC_VIETQR_BANK_ID: ${NEXT_PUBLIC_VIETQR_BANK_ID:-}
         NEXT_PUBLIC_VIETQR_ACCOUNT_NO: ${NEXT_PUBLIC_VIETQR_ACCOUNT_NO:-}
         NEXT_PUBLIC_VIETQR_ACCOUNT_NAME: ${NEXT_PUBLIC_VIETQR_ACCOUNT_NAME:-}
     environment:
       API_BASE_URL: http://api:4000
     ports:
-      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
       api:
         condition: service_healthy

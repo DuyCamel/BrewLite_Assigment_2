@@ -19,16 +19,15 @@ html {
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background: #dfe3dc;
+  background: var(--paper);
   color: var(--ink);
 }
 .mobile-shell {
-  width: min(100%, 430px);
+  width: 100%;
   min-height: 100vh;
   margin: 0 auto;
   overflow-x: hidden;
   background: var(--paper);
-  box-shadow: 0 0 28px rgb(32 62 53 / 12%);
 }
 a {
   color: inherit;
@@ -824,83 +823,85 @@ p {
   }
 }
 
-/* Ứng dụng luôn giữ bố cục dọc như màn hình điện thoại. */
-.mobile-shell .container {
-  width: calc(100% - 32px);
-}
-.mobile-shell .header {
-  min-height: 72px;
-  height: auto;
-}
-.mobile-shell .header-inner {
-  gap: 12px;
-  flex-wrap: wrap;
-  padding-block: 10px;
-}
-.mobile-shell .brand {
-  font-size: 22px;
-}
-.mobile-shell .brand-mark {
-  width: 31px;
-  height: 31px;
-  font-size: 25px;
-}
-.mobile-shell .header nav {
-  display: flex;
-  order: 3;
-  width: 100%;
-  justify-content: center;
-  gap: 24px;
-  padding-top: 6px;
-  border-top: 1px solid var(--line);
-  font-size: 12px;
-}
-.mobile-shell .account-nav {
-  gap: 8px;
-  font-size: 11px;
-  white-space: nowrap;
-}
-.mobile-shell .cart-link {
-  padding: 9px 10px;
-}
-.mobile-shell .hero-inner {
-  grid-template-columns: 1fr;
-  gap: 28px;
-  min-height: 0;
-  padding-block: 30px 34px;
-}
-.mobile-shell .hero h1 {
-  margin: 16px 0;
-  font-size: clamp(35px, 10vw, 43px);
-}
-.mobile-shell .hero-copy > p {
-  font-size: 14px;
-}
-.mobile-shell .hero-visual {
-  width: 100%;
-  max-width: 440px;
-  height: 235px;
-  justify-self: center;
-  border-top-left-radius: 70px;
-}
-.mobile-shell .hero-photo-frame {
-  top: 30px;
-  height: 170px;
-}
-.mobile-shell .product-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 12px;
-}
-.mobile-shell .menu-heading {
-  display: block;
-}
-.mobile-shell .menu-heading h2 {
-  font-size: 29px;
-}
-.mobile-shell .search {
-  width: 100%;
-  min-width: 0;
-  margin-top: 20px;
+/* Bố cục rút gọn khi ở trên màn hình điện thoại (<= 768px). */
+@media (max-width: 768px) {
+  .mobile-shell .container {
+    width: calc(100% - 32px);
+  }
+  .mobile-shell .header {
+    min-height: 72px;
+    height: auto;
+  }
+  .mobile-shell .header-inner {
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-block: 10px;
+  }
+  .mobile-shell .brand {
+    font-size: 22px;
+  }
+  .mobile-shell .brand-mark {
+    width: 31px;
+    height: 31px;
+    font-size: 25px;
+  }
+  .mobile-shell .header nav {
+    display: flex;
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    gap: 24px;
+    padding-top: 6px;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+  }
+  .mobile-shell .account-nav {
+    gap: 8px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .mobile-shell .cart-link {
+    padding: 9px 10px;
+  }
+  .mobile-shell .hero-inner {
+    grid-template-columns: 1fr;
+    gap: 28px;
+    min-height: 0;
+    padding-block: 30px 34px;
+  }
+  .mobile-shell .hero h1 {
+    margin: 16px 0;
+    font-size: clamp(35px, 10vw, 43px);
+  }
+  .mobile-shell .hero-copy > p {
+    font-size: 14px;
+  }
+  .mobile-shell .hero-visual {
+    width: 100%;
+    max-width: 440px;
+    height: 235px;
+    justify-self: center;
+    border-top-left-radius: 70px;
+  }
+  .mobile-shell .hero-photo-frame {
+    top: 30px;
+    height: 170px;
+  }
+  .mobile-shell .product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 12px;
+  }
+  .mobile-shell .menu-heading {
+    display: block;
+  }
+  .mobile-shell .menu-heading h2 {
+    font-size: 29px;
+  }
+  .mobile-shell .search {
+    width: 100%;
+    min-width: 0;
+    margin-top: 20px;
+  }
 }
 
 /* Giỏ hàng và xác nhận đơn (TV2). */
@@ -1782,53 +1783,55 @@ p {
   place-items: center;
 }
 
-/* Mobile app shell: all screens stay compact and stack vertically. */
-.mobile-shell .shopping-layout,
-.mobile-shell .checkout-layout,
-.mobile-shell .product-detail-layout,
-.mobile-shell .auth-layout {
-  grid-template-columns: 1fr;
-  gap: 16px;
-}
-.mobile-shell .shopping-heading {
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 22px;
-}
-.mobile-shell .shopping-page {
-  padding-block: 32px 50px;
-}
-.mobile-shell .order-summary {
-  position: static;
-  padding: 18px;
-}
-.mobile-shell .cart-item {
-  gap: 12px;
-  padding: 13px;
-}
-.mobile-shell .cart-item-image {
-  width: 70px;
-  height: 70px;
-}
-.mobile-shell .cart-item-title-row {
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 5px;
-}
-.mobile-shell .cart-item-actions {
-  flex-wrap: wrap;
-  gap: 8px 12px;
-}
-.mobile-shell .product-detail-layout {
-  margin-top: 16px;
-  margin-bottom: 40px;
-}
-.mobile-shell .product-detail-info,
-.mobile-shell .auth-card,
-.mobile-shell .auth-layout > * {
-  width: 100%;
-  min-width: 0;
+/* Mobile app shell: all screens stay compact and stack vertically on mobile screens. */
+@media (max-width: 768px) {
+  .mobile-shell .shopping-layout,
+  .mobile-shell .checkout-layout,
+  .mobile-shell .product-detail-layout,
+  .mobile-shell .auth-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .mobile-shell .shopping-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+  .mobile-shell .shopping-page {
+    padding-block: 32px 50px;
+  }
+  .mobile-shell .order-summary {
+    position: static;
+    padding: 18px;
+  }
+  .mobile-shell .cart-item {
+    gap: 12px;
+    padding: 13px;
+  }
+  .mobile-shell .cart-item-image {
+    width: 70px;
+    height: 70px;
+  }
+  .mobile-shell .cart-item-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .mobile-shell .cart-item-actions {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+  .mobile-shell .product-detail-layout {
+    margin-top: 16px;
+    margin-bottom: 40px;
+  }
+  .mobile-shell .product-detail-info,
+  .mobile-shell .auth-card,
+  .mobile-shell .auth-layout > * {
+    width: 100%;
+    min-width: 0;
+  }
 }
 .toast-close-btn:hover {
   color: var(--ink);

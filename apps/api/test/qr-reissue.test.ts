@@ -70,15 +70,15 @@ test("expired first QR finalizes SePay without cancelling or releasing stock, th
   }
 });
 
-test("order lifetime must be at least twice QR lifetime", () => {
+test("QR lifetime must be less than or equal to order lifetime", () => {
   const previousOrder = process.env.ORDER_TTL_MINUTES;
   const previousQr = process.env.QR_TTL_MINUTES;
   try {
     process.env.QR_TTL_MINUTES = "5";
-    process.env.ORDER_TTL_MINUTES = "9";
+    process.env.ORDER_TTL_MINUTES = "4";
     assert.throws(() => paymentLifetimes(), ConfigurationError);
-    process.env.ORDER_TTL_MINUTES = "10";
-    assert.deepEqual(paymentLifetimes(), { orderMinutes: 10, qrMinutes: 5 });
+    process.env.ORDER_TTL_MINUTES = "5";
+    assert.deepEqual(paymentLifetimes(), { orderMinutes: 5, qrMinutes: 5 });
     process.env.ORDER_TTL_MINUTES = "2";
     process.env.QR_TTL_MINUTES = "1";
     assert.deepEqual(paymentLifetimes(), { orderMinutes: 2, qrMinutes: 1 });

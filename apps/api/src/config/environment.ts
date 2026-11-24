@@ -49,11 +49,11 @@ export function paymentLifetimes(): {
     qrMinutes < 0.5 ||
     qrMinutes > 1440 ||
     !Number.isFinite(orderMinutes) ||
-    orderMinutes < 2 * qrMinutes ||
+    orderMinutes < qrMinutes ||
     orderMinutes > 10080
   ) {
     throw new ConfigurationError(
-      "ORDER_TTL_MINUTES phải ít nhất gấp đôi QR_TTL_MINUTES; thời gian QR tối thiểu 0.5 phút và cả hai phải là số phút hợp lệ",
+      "QR_TTL_MINUTES không được lớn hơn ORDER_TTL_MINUTES; thời gian QR tối thiểu 0.5 phút và cả hai phải là số phút hợp lệ",
     );
   }
   return { orderMinutes, qrMinutes };

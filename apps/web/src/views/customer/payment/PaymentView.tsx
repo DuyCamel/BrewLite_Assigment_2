@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { OrderDetail, PaymentMethod, PaymentSession } from "@/types/customer-order";
-import { createPayment, describeError, fetchOrderDetail, reconcilePayment, reissueOrderQr, retryOrderPayment } from "@/lib/client-api";
+import { createPayment, describeError, fetchOrderDetail, reconcilePayment, retryOrderPayment } from "@/lib/client-api";
 import { formatVnd } from "@/features/orders/order-format";
 import { ErrorBlock, LoadingBlock } from "@/components/orders/OrderBlocks";
 import "./payment.css";
@@ -42,6 +42,8 @@ function PaymentContent() {
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("SEPAY");
   const [paymentSession, setPaymentSession] = useState<PaymentSession | null>(null);
+  const [qrReloadCount, setQrReloadCount] = useState(0);
+  const [qrLoadError, setQrLoadError] = useState(false);
 
   const qrBankId = process.env.NEXT_PUBLIC_VIETQR_BANK_ID;
   const qrAccountNo = process.env.NEXT_PUBLIC_VIETQR_ACCOUNT_NO;
@@ -51,12 +53,12 @@ function PaymentContent() {
   const currentAmount = paymentSession ? paymentSession.amount : (order?.total || 0);
 
   const qrUrl = order?.paymentCode && qrBankId && qrAccountNo
-    ? `https://vietqr.app/img?${new URLSearchParams({ acc: qrAccountNo, bank: qrBankId, amount: String(currentAmount), des: transferDescription, template: "compact", showinfo: "true", holder: qrAccountName })}`
+    ? `https://vietqr.app/img?${new URLSearchParams({ acc: qrAccountNo, bank: qrBankId, amount: String(currentAmount), des: transferDescription, template: "compact", showinfo: "true", holder: qrAccountName, ...(qrReloadCount > 0 ? { _r: String(qrReloadCount) } : {}) })}`
     : null;
     
   const secondsLeft = order ? Math.max(0, Math.ceil((Date.parse(order.qrExpiresAt) - now) / 1000)) : 0;
   const orderSecondsLeft = order ? Math.max(0, Math.ceil((Date.parse(order.expiresAt) - now) / 1000)) : 0;
-  const orderValid = orderSecondsLeft > 0 && (secondsLeft > 0 || order?.qrAttempts === 1);
+  const orderValid = orderSecondsLeft > 0;
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -165,19 +167,9 @@ function PaymentContent() {
     }
   };
 
-  const handleReissue = async () => {
-    if (!order || isProcessing || paymentSession || order.status !== "PENDING" || order.qrAttempts !== 1 || secondsLeft > 0 || orderSecondsLeft === 0) return;
-    setIsProcessing(true);
-    setError("");
-    try {
-      await reissueOrderQr(order.id);
-      setOrder(await fetchOrderDetail(order.id));
-      setNow(Date.now());
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Không thể cấp lại QR.");
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleReloadQr = () => {
+    setQrLoadError(false);
+    setQrReloadCount((count) => count + 1);
   };
 
   if (loading) return <section className="container ord-page"><LoadingBlock text="Đang tải thông tin đơn hàng" /></section>;
@@ -217,11 +209,24 @@ function PaymentContent() {
           </div>
         )}
 
-        {/* BƯỚC 2A: HIỆN QR SEPAY */}
+        {/* BƯỚC 2A: HIỆN QR SEPAY (1 mã QR duy nhất gắn theo đơn; chỉ tắt khi QR hết hạn) */}
         {order.status === "PENDING" && orderValid && paymentSession?.method === "SEPAY" && currentAmount > 0 && secondsLeft > 0 && qrUrl && (
           <div className="pay-qr" style={{ marginTop: "1.5rem", borderTop: "2px dashed #eee", paddingTop: "1.5rem" }}>
             <h2>Quét mã QR để chuyển khoản</h2>
-            <img className="pay-qr-image" src={qrUrl} alt="Mã QR chuyển khoản VietQR" />
+            {qrLoadError ? (
+              <p className="pay-note" role="alert">Không tải được ảnh mã QR. Hãy bấm nút bên dưới để tải lại.</p>
+            ) : (
+              <img
+                className="pay-qr-image"
+                src={qrUrl}
+                alt="Mã QR chuyển khoản VietQR"
+                onLoad={() => setQrLoadError(false)}
+                onError={() => setQrLoadError(true)}
+              />
+            )}
+            <button type="button" className="outline-button" onClick={handleReloadQr} style={{ marginTop: "0.5rem" }}>
+              Tải lại mã QR
+            </button>
             <p style={{ fontSize: "1.2rem", margin: "1rem 0" }}>Số tiền: <strong style={{ color: "#e11d48" }}>{formatVnd(currentAmount)}</strong></p>
             <p>Nội dung chuyển khoản: <strong>{transferDescription}</strong></p>
             <p style={{ color: "#6b7280", fontSize: "0.9rem" }}>Đang chờ hệ thống xác nhận tiền vào.</p>
@@ -238,7 +243,6 @@ function PaymentContent() {
       </div>
 
       <div className="ord-actions">
-        {order.status === "PENDING" && orderValid && order.qrAttempts === 1 && secondsLeft === 0 && !paymentSession && <button type="button" className="primary-button" onClick={handleReissue} disabled={isProcessing}>Cấp lại mã QR</button>}
         {order.canRetryPayment ? (
           <button type="button" className="primary-button" onClick={handlePayment} disabled={isProcessing}>Thử lại thanh toán</button>
         ) : (
